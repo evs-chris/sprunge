@@ -1,0 +1,16 @@
+{
+  "name": "sprunge",
+  "version": "0.0.0-alpha-000",
+  "devDependencies": {
+    "typescript": "^3.7",
+    "rollup": "^1"
+  },
+  "scripts": {
+    "build": "tsc",
+    "bundle": "rollup build/tsc/index.js --file build/bundle.js --format iife --name json",
+    "build:bundle": "tsc; rollup build/tsc/index.js --file build/bundle.js --format iife --name json"
+  },
+  "dependencies": {
+    "terser": "^4.6.3"
+  }
+}

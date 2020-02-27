@@ -1,16 +1,34 @@
 {
   "name": "sprunge",
-  "version": "0.0.0-alpha-000",
+  "version": "0.0.1",
+  "description": "a parser combinator library",
+  "main": "./lib/sprunge.umd.js",
+  "types": "./lib/index.d.ts",
+  "module": "./lib/index.js",
+  "license": "MIT",
+  "keywords": [
+    "parser"
+  ],
   "devDependencies": {
     "typescript": "^3.7",
-    "rollup": "^1"
+    "rollup": "^1",
+    "eslint": "^6",
+    "qunit": "^2.9",
+    "@types/qunit": "^2.9",
+    "source-map-support": "^0.5"
   },
   "scripts": {
-    "build": "tsc",
-    "bundle": "rollup build/tsc/index.js --file build/bundle.js --format iife --name json",
-    "build:bundle": "tsc; rollup build/tsc/index.js --file build/bundle.js --format iife --name json"
+    "build:code": "tsc -p config/lib.tsconfig.json",
+    "bundle:code": "rollup lib/index.js --file lib/sprunge.umd.js --format umd --name sprunge",
+    "build": "npm run build; npm run bundle",
+    "clean": "rm -r lib build",
+    "build:test": "tsc -p config/test.tsconfig.json",
+    "bundle:test": "rollup build/test/test/index.js --file build/test.js --format iife --name sprunge_test --sourcemap",
+    "test": "npm run build:test; npm run bundle:test; qunit --require 'source-map-support/register' build/test.js"
   },
-  "dependencies": {
-    "terser": "^4.6.3"
-  }
+  "files": [
+    "lib",
+    "README.md",
+    "CHANGELOG.md"
+  ]
 }

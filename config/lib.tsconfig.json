@@ -1,15 +1,15 @@
 {
   "compilerOptions": {
     "module": "es2015",
-    "target": "es5",
+    "target": "es2017",
     "noImplicitAny": true,
     "removeComments": true,
     "preserveConstEnums": true,
     "sourceMap": true,
-    "outDir": "build/tsc"
+    "outDir": "../lib"
   },
   "include": [
-    "src/**/*"
+    "../src/**/*"
   ]
 }
 

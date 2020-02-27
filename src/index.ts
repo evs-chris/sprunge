@@ -14,6 +14,10 @@ export type Success<T> = [T, number, Cause?];
  */
 export type Cause = [number, string, Cause?, Cause[]?];
 
+/**
+ * Failure is signified by an empty array, but you should only ever return
+ * Fail and not a new empty array.
+ */
 export type Failure = [];
 
 // The canonical failure
@@ -31,7 +35,17 @@ export function detailedErrors(on?: boolean): boolean {
 }
 
 const _cause: Cause = [0, ''];
+
+/**
+ * Returns the shared cause for the last failure. This _will_ change at the
+ * next fail().
+ */
 export function getCause(): Cause { return _cause; }
+/**
+ * Returns a copy of the shared cause for the last failure. This is safe
+ * to hold on to for as long as you need, and should probably be gated
+ * behind a check for detailedErrors().
+ */
 export function getCauseCopy(): Cause { return _cause.slice() as Cause; }
 
 /**
@@ -88,33 +102,71 @@ export interface IParser<T> {
  */
 export type Parser<T> = IParser<T>|{ parser?: IParser<T> };
 
+/**
+ * A parse error produced by a ParseFn.
+ */
 export interface ParseError {
+  /** The message produced by the parser that errored. */
   message: string;
+  /** The position in the input string at which the error occurred. */
   position: number;
+  /** The line number in the input string at which the error occurred. */
   line: number;
+  /** The column within the line in the input string at which the error occurred. */
   column: number;
+  /** The line within the input string in which the error occurred. */
   source: string;
+  /** The lines surrounding the line within the input string in which the error occurred. */
   context: string[];
+  /** A formatted string with a carat pointing at the location of the error within its context. */
   marked: string;
+  /** A downstream cause. */
   cause?: ParseError;
+  /** A list of upstream causes. */
   causes?: ParseError[];
 }
 
-export type ParseFn<T> = (input: string) => T|ParseError;
+/**
+ * A wrapped parser that is produced by the parse function. This will return
+ * either a successfully parsed result or an error. Depending on the error
+ * options, it may also throw or produce detailed errors (much more slowly).
+ */
+export type ParseFn<T> = (input: string, error?: ErrorOptions) => T|ParseError;
 
+/**
+ * Options for controlling how errors are produced by a ParseFn.
+ */
 export interface ErrorOptions {
+  /* The number of lines surrounding an error line that should be included in errors. This defaults to 0, and setting it to a number greater than 0 will produce up to 2x + 1 the number of lines, as it applies to lines both above and below the source line. */
   contextLines?: number;
+  /* Turns on detailed errors for this parser or parse run. */
   detailed?: boolean;
+  /* Throws an error rather than returning a ParseError. */
   throw?: boolean;
+  /* Produces an error if all of the input is not consumed during parsing. */
   consumeAll?: boolean;
 }
 
+/**
+ * Counts the number of lines that occur before pos.
+ *
+ * @param input
+ * @param pos
+ */
 export function getLineNum(input: string, pos: number): number {
   let n = 1;
   while (~(pos = input.lastIndexOf('\n', pos))) { n++; pos-- };
   return n;
 }
 
+/**
+ * Converts a cause into a ParseError using the original input.
+ *
+ * @param cause - the cause to base the error on
+ * @param input - the original parser input
+ * @param context - the number of lines around the error to include in the
+ * ParseError.
+ */
 export function getParseError(cause: Cause, input: string, context: number): ParseError {
   const lines: string[] = [];
   const pos = cause[0];
@@ -157,6 +209,12 @@ export function getParseError(cause: Cause, input: string, context: number): Par
   };
 }
 
+/**
+ * Wraps a parser in a ParseFn.
+ *
+ * @param parser - the base parser to wrap
+ * @param error - default ErrorOptions for the returned ParseFn
+ */
 export function parser<T>(parser: Parser<T>, error?: ErrorOptions): ParseFn<T> {
   let mps: IParser<T>;
   const oerror = error;
@@ -175,7 +233,7 @@ export function parser<T>(parser: Parser<T>, error?: ErrorOptions): ParseFn<T> {
       res = (mps || (mps = unwrap(parser))).parse(input, 0);
     }
 
-    if ((error && error.consumeAll || consume) && res[1] < input.length) {
+    if ((error && 'consumeAll' in error ? error.consumeAll : consume) && res[1] < input.length) {
       res = fail(res[1], detailedFail & 2 && `expected to consume all input, but only ${res[1]} chars consumed`);
     }
 
@@ -189,6 +247,10 @@ export function parser<T>(parser: Parser<T>, error?: ErrorOptions): ParseFn<T> {
   }
 }
 
+/**
+ * A parser that always fails. This is used by parsers that can wrap lazy
+ * parsers when the lazy parsers are unitialized at first call.
+ */
 export const uninit: any = { parse: (_s: String, p: number) => fail(p, detailedFail & 2 && 'uninitialized lazy parser') };
 
 /**
@@ -459,6 +521,13 @@ export function alt<T>(name?: string|Parser<T>, ...parsers: Array<Parser<T>>): I
   };
 }
 
+/**
+ * Returns a cause that is composed of the cause furthest into the
+ * input.
+ *
+ * @param causes - the causes to check
+ * @param outer - the immediate cause
+ */
 export function getLatestCause(causes: Cause[], outer: Cause): Cause {
   let max = outer[0];
   outer[3] = causes;
@@ -730,6 +799,14 @@ export function map<T, U>(parser: Parser<T>, fn: (t: T) => U): IParser<U> {
   };
 }
 
+/**
+ * Creates a parser that parses bracketed content, ignoring the brackets in
+ * the result.
+ *
+ * @param left - the left bracket parser
+ * @param content - the primary content parser
+ * @param right - the right bracket parser
+ */
 export function bracket<T>(left: Parser<any>, content: Parser<T>, right: Parser<any>): IParser<T> {
   const o = seq(left, content, right);
   return {

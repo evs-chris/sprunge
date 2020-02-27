@@ -87,6 +87,8 @@ Bloody hell, you think that's better than BNF? Yes, yes I do - because - there's
 
 ## Ah, geez. What else?
 
+This is not a streaming parser library, so if you don't have the full input or can't fit it all in memory at the same time, this is not the library you're looking for. I wouldn't try to parse more than a few tens of MB of text, and even that may be pushing it. This library should work fine in node, where you'd be more likely to get away with parsing that much. It's also written to avoid excessive allocations if the underlying JS engine doesn't optimize `substr`s. The theoretical absolute maximum input is 2GB, though I suppose it could go to `MAX_SAFE_INTEGER` if the engine supports it.
+
 This doesn't yet support building parse trees, which can be useful for certain tasks. That or some sort of hook functionality that makes it easier to do outside of the core library are on the list of things to do. There also aren't any guards or look-ahead/look-behind helpers, and those are also things that would be useful in the core library.
 
 This library is written in Typescript and is distributed as a UMD bundle or ES modules. If you use ES modules for your client-side code and bundle with [rollup](https://rollupjs.org), which I strongly recommend, you theoretically won't have to include any parsers that you don't use in your bundle, as this style of assembling parsers is quite treeshakable. Hopefully this will allow a very rich set of parsers to be included in the core library without additional overhead.

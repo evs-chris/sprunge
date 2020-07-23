@@ -1,4 +1,4 @@
-import { skip, read, read1, chars, readTo, read1To, alt, rep, rep1, str, opt, repsep, rep1sep, chain, map, bracket, seq } from '../src/index';
+import { skip, read, read1, chars, readTo, read1To, alt, rep, rep1, str, opt, repsep, rep1sep, chain, map, bracket, seq, check } from '../src/index';
 
 const q = QUnit;
 
@@ -92,6 +92,18 @@ q.test('repsep', t => {
   t.equal(p.parse('abc def', 0)[0].length, 0);
 });
 
+q.test('repsep optional follow', t => {
+  const p = repsep(read1To(' ', true), str(' '), 'allow');
+  t.equal(p.parse('foo foo foo', 0)[0].join('|'), 'foo|foo|foo');
+  t.equal(p.parse('foo foo foo ', 0)[0].join('|'), 'foo|foo|foo');
+});
+
+q.test('repsep required follow', t => {
+  const p = repsep(read1To(' ', true), str(' '), 'require');
+  t.equal(p.parse('foo foo foo', 0).length, 0);
+  t.equal(p.parse('foo foo foo ', 0)[0].join('|'), 'foo|foo|foo');
+});
+
 q.test('rep1sep', t => {
   const p = rep1sep(str('foo'), read1(' '));
   t.equal(p.parse('foo foo foo', 0)[0].join('|'), 'foo|foo|foo');
@@ -129,8 +141,21 @@ q.test('bracket', t => {
   t.equal(p.parse('A foo  B ', 0)[0], 'foo');
 });
 
+q.test('bracket mirror', t => {
+  const p = bracket([str(`'`), str(`"`)], readTo(`'"`));
+  t.equal(p.parse(`"foo"`, 0)[0], 'foo');
+  t.equal(p.parse(`"foo"`, 0)[0], 'foo');
+  t.equal(p.parse(`"foo'`, 0).length, 0);
+});
+
 q.test('seq', t => {
   const p = seq(str('f'), str('o'), str('o'));
   t.equal(p.parse('foo', 0)[0].join(''), 'foo');
+  t.equal(p.parse('fOo', 0).length, 0);
+});
+
+q.test('check', t => {
+  const p = check(str('foo'));
+  t.equal(p.parse('foo', 0)[1], 3);
   t.equal(p.parse('fOo', 0).length, 0);
 });

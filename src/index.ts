@@ -21,8 +21,8 @@ export type Cause = [number, string, Cause?, Cause[]?];
 export type Failure = [];
 
 // The canonical failure
-const Fail: Failure = [];
-let detailedFail: 1|2 = 1;
+export const Fail: Failure = [];
+let detailedFail = false;
 /**
  * Controls whether or not detailed error messages should be produced. It can
  * also be used for new combinators to be slightly more performant by not
@@ -31,7 +31,7 @@ let detailedFail: 1|2 = 1;
  * @param on - true if detailed errors should be enabled
  */
 export function detailedErrors(on?: boolean): boolean {
-  return on === (undefined ? detailedFail : (detailedFail = on ? 2 : 1) === 2);
+  return on === (undefined ? detailedFail : (detailedFail = on) === true);
 }
 
 const _cause: Cause = [0, ''];
@@ -71,7 +71,7 @@ export function fail(pos: number, message: false|string, cause?: Cause, causes?:
  * @param result - the result to check
  */
 export function isFailure<T>(result: Result<T>): result is Failure {
-  return result === Fail;
+  return !result.length;
 }
 
 /**
@@ -84,7 +84,7 @@ export interface IParser<T> {
    * @param input - the string to parse
    * @param position - the current position of parsing in the string
    */
-  parse(input: string, position: number): Result<T>;
+  parse(input: string, position: number, result?: Success<T>): Result<T>;
 }
 
 /**
@@ -218,26 +218,26 @@ export function getParseError(cause: Cause, input: string, context: number): Par
 export function parser<T>(parser: Parser<T>, error?: ErrorOptions): ParseFn<T> {
   let mps: IParser<T>;
   const oerror = error;
-  const det = (error && 'detailed' in error) ? error.detailed === true ? 2 : 1 : 0;
+  const det = (error && 'detailed' in error) ? error.detailed : false;
   const consume = error && error.consumeAll;
   return function parse(input: string, error?: ErrorOptions) {
-    let res: Result<T>;
+    let res: Result<T> = [null, 0];
 
-    const d = (error && 'detailed' in error) ? (error.detailed ? 2 : 1) : det;
-    if (d && d !== detailedFail) {
+    const d = (error && 'detailed' in error) ? error.detailed : det;
+    if (d !== detailedFail) {
       const c = detailedFail;
       detailedFail = d;
-      res = (mps || (mps = unwrap(parser))).parse(input, 0);
+      res = (mps || (mps = unwrap(parser))).parse(input, 0, res);
       detailedFail = c;
     } else {
-      res = (mps || (mps = unwrap(parser))).parse(input, 0);
+      res = (mps || (mps = unwrap(parser))).parse(input, 0, res);
     }
 
     if ((error && 'consumeAll' in error ? error.consumeAll : consume) && res[1] < input.length) {
-      res = fail(res[1], detailedFail & 2 && `expected to consume all input, but only ${res[1]} chars consumed`);
+      res = fail(res[1], detailedFail && `expected to consume all input, but only ${res[1]} chars consumed`);
     }
 
-    if (isFailure(res)) {
+    if (!res.length) {
       const err = getParseError(getCause(), input, (error && 'contextLines' in error ? error.contextLines : oerror && oerror.contextLines) || 0);
       if (error && 'throw' in error ? error.throw : oerror && oerror.throw) {
         const ex = new Error(err.message);
@@ -251,7 +251,7 @@ export function parser<T>(parser: Parser<T>, error?: ErrorOptions): ParseFn<T> {
  * A parser that always fails. This is used by parsers that can wrap lazy
  * parsers when the lazy parsers are unitialized at first call.
  */
-export const uninit: any = { parse: (_s: String, p: number) => fail(p, detailedFail & 2 && 'uninitialized lazy parser') };
+export const uninit: any = { parse: (_s: String, p: number) => fail(p, detailedFail && 'uninitialized lazy parser') };
 
 /**
  * Unwraps a lazy parser or returns an immediately failing parser in case the
@@ -259,6 +259,15 @@ export const uninit: any = { parse: (_s: String, p: number) => fail(p, detailedF
  */
 export function unwrap<T>(parser: Parser<T>): IParser<T> {
   return (((parser as any).parser || parser) as IParser<T>) || uninit;
+}
+
+export function concat(strings: string[]): string {
+  let res = '';
+  const len = strings.length;
+  for (let i = 0; i < len; i++) {
+    if (strings[i]) res = res.concat(strings[i]);
+  }
+  return res;
 }
 
 /**
@@ -274,28 +283,121 @@ export function contains(str: string, x: string): boolean {
   let start = 0, end = str.length - 1; 
   if (end < 4) {
     if (end === 0) return str === x;
-    else if (end === 1) return str[0] === x || str[1] === x;
-    else if (end === 2) return str[0] === x || str[1] === x || str[2] === x;
-    else if (end === 3) return str[0] === x || str[1] === x || str[2] === x || str[3] === x;
-    else return false;
-  } else if (end > 80) {
-    let mid: number;
-    let c: string;
-
-    while (start <= end) { 
-      mid = (start + end) >> 1; 
-      c = str[mid];
-
-      if (c === x) return true; 
-      else if (c < x) start = mid + 1; 
-      else end = mid - 1; 
-    }
+    if (end === 1) return str[0] === x || str[1] === x;
+    if (end === 2) return str[0] === x || str[1] === x || str[2] === x;
+    if (end === 3) return str[0] === x || str[1] === x || str[2] === x || str[3] === x;
   } else {
-    for (let i = 0; i <= end; i++) if (str[i] === x) return true;
+    if (x < str[0] || x > str[end]) return false;
+    if (end < 80) {
+      for (let i = 0; i <= end; i++) if (str[i] === x) return true;
+    } else {
+      let mid: number;
+      let c: string;
+
+      while (start <= end) { 
+        mid = (start + end) >> 1; 
+        c = str[mid];
+
+        if (c === x) return true; 
+        else if (c < x) start = mid + 1; 
+        else end = mid - 1; 
+      }
+    }
   }
 
   return false; 
 } 
+
+function contains0(): boolean {
+  return false;
+}
+
+function contains1(str: string, x: string): boolean {
+  return str === x;
+}
+
+function contains2(str: string, x: string): boolean {
+  return str[0] === x || str[1] === x;
+}
+
+function contains3(str: string, x: string): boolean {
+  return str[0] === x || str[1] === x || str[2] === x;
+}
+
+function contains4(str: string, x: string): boolean {
+  return str[0] === x || str[1] === x || str[2] === x || str[3] === x;
+}
+
+function contains5(str: string, x: string): boolean {
+  return str[0] === x || str[1] === x || str[2] === x || str[3] === x || str[4] === x;
+}
+
+function contains6(str: string, x: string): boolean {
+  return str[0] === x || str[1] === x || str[2] === x || str[3] === x || str[4] === x || str[5] === x;
+}
+
+function contains7(str: string, x: string): boolean {
+  return str[0] === x || str[1] === x || str[2] === x || str[3] === x || str[4] === x || str[5] === x || str[6] === x;
+}
+
+function contains8(str: string, x: string): boolean {
+  return str[0] === x || str[1] === x || str[2] === x || str[3] === x || str[4] === x || str[5] === x || str[6] === x || str[7] === x;
+}
+
+function contains9(str: string, x: string): boolean {
+  return str[0] === x || str[1] === x || str[2] === x || str[3] === x || str[4] === x || str[5] === x || str[6] === x || str[7] === x || str[8] === x;
+}
+
+function contains10(str: string, x: string): boolean {
+  return str[0] === x || str[1] === x || str[2] === x || str[3] === x || str[4] === x || str[5] === x || str[6] === x || str[7] === x || str[8] === x || str[9] === x;
+}
+
+function containsFor(str: string, x: string): boolean {
+  const len = str.length;
+  for (let i = 0; i < len; i++) if (str[i] === x) return true;
+  return false;
+}
+
+function containsBinary(str: string, x: string): boolean {
+  let end = str.length - 1;
+  let start = 0;
+  if (x < str[0] || x > str[end]) return false;
+  let mid: number;
+  let c: string;
+
+  while (start <= end) { 
+    mid = (start + end) >> 1; 
+    c = str[mid];
+
+    if (c === x) return true; 
+    else if (c < x) start = mid + 1; 
+    else end = mid - 1; 
+  }
+}
+
+export type SearchFn = (str: string, x: string) => boolean;
+
+/**
+ * Returns an optimized function to search for a character in a string.
+ *
+ * @param str - the string to optimize the search for when sorted
+ */
+export function getSearch(str: string, sorted: boolean = true): SearchFn {
+  const len = str.length;
+  if (len === 0) return contains0;
+  if (len === 1) return contains1;
+  if (len === 2) return contains2;
+  if (len === 3) return contains3;
+  if (len === 4) return contains4;
+  if (len === 5) return contains5;
+  if (len === 6) return contains6;
+  if (len === 7) return contains7;
+  if (len === 8) return contains8;
+  if (len === 9) return contains9;
+  if (len === 10) return contains10;
+  if (sorted) return containsBinary;
+  else return containsFor;
+}
 
 /**
  * Seeks through the input until a character within chars is encountered.
@@ -304,7 +406,7 @@ export function contains(str: string, x: string): boolean {
  * @param p - the index within `s` from which to start
  * @param chars - a sorted string of characters to search for
  */
-export function seekUntilChar(s: string, p: number, chars: string): number {
+export function seekUntilChar(s: string, p: number, chars: string, contains: SearchFn): number {
   const len = s.length;
   for (let i = p; i < len; i++) {
     if (contains(chars, s[i])) return i;
@@ -319,7 +421,7 @@ export function seekUntilChar(s: string, p: number, chars: string): number {
  * @param p - the index with `s` from which to start
  * @param chars - a sorted string of characters to search for
  */
-export function seekWhileChar(s: string, p: number, chars: string): number {
+export function seekWhileChar(s: string, p: number, chars: string, contains: SearchFn): number {
   const len = s.length;
   for (let i = p; i < len; i++) {
     if (!contains(chars, s[i])) return i;
@@ -337,13 +439,14 @@ export function seekWhileChar(s: string, p: number, chars: string): number {
  * `chars` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-const skipRes: Success<''> = ['', 0];
 export function skip(chars: string): IParser<''> {
   const sorted = chars.split('').sort().join('');
+  const contains = getSearch(chars);
   return {
-    parse(s: string, p: number) {
-      skipRes[1] = seekWhileChar(s, p, sorted);
-      return skipRes;
+    parse(s: string, p: number, res?: Success<''>) {
+      res = res || ['', 0];
+      res[1] = seekWhileChar(s, p, sorted, contains);
+      return res;
     }
   };
 }
@@ -360,10 +463,11 @@ export function skip(chars: string): IParser<''> {
  */
 export function read(chars: string): IParser<string> {
   const sorted = chars.split('').sort().join('');
-  const res: Success<string> = ['', 0];
+  const contains = getSearch(chars);
   return {
-    parse(s: string, p: number) {
-      const r = seekWhileChar(s, p, sorted);
+    parse(s: string, p: number, res?: Success<string>) {
+      res = res || ['', 0];
+      const r = seekWhileChar(s, p, sorted, contains);
       res[0] = s.substring(p, r);
       res[1] = r;
       return res;
@@ -384,11 +488,12 @@ export function read(chars: string): IParser<string> {
  */
 export function read1(chars: string): IParser<string> {
   const sorted = chars.split('').sort().join('');
-  const res: Success<string> = ['', 0];
+  const contains = getSearch(chars);
   return {
-    parse(s: string, p: number) {
-      const r = seekWhileChar(s, p, sorted);
-      if (r === p) return fail(p, detailedFail & 2 && `expected one of ${chars}`);
+    parse(s: string, p: number, res?: Success<string>) {
+      res = res || ['', 0];
+      const r = seekWhileChar(s, p, sorted, contains);
+      if (r === p) return fail(p, detailedFail && `expected one of ${chars}`);
       res[0] = s.substring(p, r);
       res[1] = r;
       return res;
@@ -409,18 +514,18 @@ export function read1(chars: string): IParser<string> {
  */
 export function chars(count: number, allowed?: string): IParser<string> {
   const sorted = allowed && allowed.split('').sort().join('');
-  const res: Success<string> = ['', 0];
   return {
-    parse(s: string, p: number) {
+    parse(s: string, p: number, res?: Success<string>) {
       if (s.length - p >= count) {
+        res = res || ['', 0];
         const str = s.substr(p, count);
         if (sorted) {
-          for (let i = 0; i < count; i++) if (!contains(sorted, str[i])) return fail(p + i, detailedFail & 2 && 'unexpected char');
+          for (let i = 0; i < count; i++) if (!contains(sorted, str[i])) return fail(p + i, detailedFail && 'unexpected char');
         }
         res[0] = str;
         res[1] = p + count;
         return res;
-      } else return fail(p, detailedFail & 2 && 'unexpected end of input');
+      } else return fail(p, detailedFail && 'unexpected end of input');
     }
   };
 }
@@ -441,12 +546,13 @@ export function chars(count: number, allowed?: string): IParser<string> {
  */
 export function readTo(stop: string, end?: true): IParser<string> {
   const sorted = stop.split('').sort().join('');
-  const res: Success<string> = ['', 0];
+  const contains = getSearch(stop);
   return {
-    parse(s: string, p: number) {
-      const skipped = seekUntilChar(s, p, sorted);
-      if (!end && skipped >= s.length) return fail(p, detailedFail & 2 && `expected one of '${stop}' before end of input`);
-      res[0] = s.substring(p, skipped);
+    parse(s: string, p: number, res?: Success<string>) {
+      res = res || ['', 0];
+      const skipped = seekUntilChar(s, p, sorted, contains);
+      if (!end && skipped >= s.length) return fail(p, detailedFail && `expected one of '${stop}' before end of input`);
+      res[0] = skipped ? s.substring(p, skipped) : '';
       res[1] = skipped;
       return res;
     }
@@ -468,16 +574,53 @@ export function readTo(stop: string, end?: true): IParser<string> {
  * somewhat faster binary search.
  */
 export function read1To(stop: string, end?: true): IParser<string> {
-  const sorted = stop.split('').sort().join('');
-  const res: Success<string> = ['', 0];
+  const op = readTo(stop, end);
   return {
-    parse(s: string, p: number) {
-      const skipped = seekUntilChar(s, p, sorted);
-      if (skipped <= p) return fail(p, detailedFail & 2 && 'expected at least one character');
-      if (!end && skipped >= s.length) return fail(p, detailedFail & 2 && `expected one of '${stop}' before end of input`);
-      res[0] = s.substring(p, skipped);
+    parse(s: string, p: number, resin?: Success<string>) {
+      resin = resin || ['', 0];
+      const res = op.parse(s, p, resin);
+      if (!res.length) return res;
+      else if (res[1] > p) return res;
+      else return fail(p, detailedFail && `expected at least one character`);
+    }
+  }
+}
+
+export function readToDyn(state: { stop: string }, end?: true): IParser<string> {
+  return {
+    parse(s: string, p: number, res?: Success<string>) {
+      res = res || ['', 0];
+      const skipped = seekUntilChar(s, p, state.stop, getSearch(state.stop, false));
+      if (!end && skipped >= s.length) return fail(p, detailedFail && `expected one of '${state.stop}' before end of input`);
+      res[0] = skipped ? s.substring(p, skipped) : '';
       res[1] = skipped;
       return res;
+    }
+  };
+}
+
+export function read1ToDyn(state: { stop: string }, end?: true): IParser<string> {
+  const op = readToDyn(state, end);
+  return {
+    parse(s: string, p: number, res?: Success<string>) {
+      const r = op.parse(s, p, res);
+      if (!r.length) return r;
+      else if (r[0].length < 1) return fail(p, detailedFail && `expected at least one characater`);
+      else return res;
+    }
+  }
+}
+
+export function peek(count: number): IParser<string> {
+  return {
+    parse(s: string, p: number, res?: Success<string>) {
+      const r = s.substr(p, count);
+      if (r.length === count) {
+        res = res || ['', 0];
+        res[0] = r;
+        res[1] = p + count;
+        return res;
+      } else return fail(p, detailedFail && `unexpected end of input`);
     }
   }
 }
@@ -501,24 +644,30 @@ export function alt<T>(name: string, ...parsers: Array<Parser<T>>): IParser<T>;
 export function alt<T>(name?: string|Parser<T>, ...parsers: Array<Parser<T>>): IParser<T> {
   const nm = typeof name === 'string' ? name : 'alternate';
   const lps: Array<Parser<T>> = typeof name === 'string' ? parsers : (name ? [name] : []).concat(parsers);
-  let mps: Array<IParser<T>>;
-  return {
-    parse(s: string, p: number) {
-      const ps = mps || (mps = lps.map(p => unwrap(p)));
-      let fails: Cause[];
-      const len = ps.length;
-      for (let i = 0; i < len; i++) {
-        const parser = ps[i];
-        const res = parser.parse(s, p);
-        if (!isFailure(res)) return res;
-        else if (detailedFail & 2) (fails || (fails = [])).push(getCauseCopy());
-      }
-      if (detailedFail & 2) {
-        const cause = getLatestCause(fails, [p, `expected ${nm}`]);
-        return fail(cause[0], cause[1], cause[2], cause[3]);
-      } else return fail(p, false);
+  let ps: Array<IParser<T>>;
+  const len = lps.length;
+  function parse(s: string, p: number, resin?: Success<T>) {
+    resin = resin || [null, 0];
+    let fails: Cause[];
+    for (let i = 0; i < len; i++) {
+      const res = ps[i].parse(s, p, resin);
+      if (res.length) return res;
+      else if (detailedFail) (fails || (fails = [])).push(getCauseCopy());
+    }
+    if (detailedFail) {
+      const cause = getLatestCause(fails, [p, `expected ${nm}`]);
+      return fail(cause[0], cause[1], cause[2], cause[3]);
+    } else return fail(p, false);
+  }
+  let res: IParser<T>;
+  res = {
+    parse(s: string, p: number, resin?: Success<T>) {
+      ps = lps.map(p => unwrap(p));
+      res.parse = parse;
+      return parse(s, p, resin);
     }
   };
+  return res;
 }
 
 /**
@@ -552,24 +701,31 @@ export function getLatestCause(causes: Cause[], outer: Cause): Cause {
  * This will successfully parse an empty array.
  */
 export function rep<T>(parser: Parser<T>): IParser<T[]> {
-  let mps: IParser<T>;
-  return {
-    parse(s: string, p: number) {
-      const ps = mps || (mps = unwrap(parser));
-      const seq: T[] = [];
-      let c = p;
-      let res: Result<T>;
-      while (1) {
-        res = ps.parse(s, c);
-        if (!isFailure(res)) {
-          seq.push(res[0]);
-          c = res[1];
-        } else {
-          return [seq, c, detailedFail & 2 && getCauseCopy()];
-        }
+  let ps: IParser<T>;
+  function parse(s: string, p: number, resin?: Success<T[]>): Result<T[]> {
+    resin = resin || [null, 0];
+    let seq: T[] = [];
+    let c = p;
+    let res: Result<T>;
+    while (1) {
+      res = ps.parse(s, c, resin as any);
+      if (res.length) {
+        seq.push(res[0]);
+        c = res[1];
+      } else {
+        return [seq || [], c, detailedFail && getCauseCopy()];
       }
     }
+  }
+  let res: IParser<T[]>
+  res = {
+    parse(s: string, p: number, resin?: Success<T[]>) {
+      ps = unwrap(parser);
+      res.parse = parse;
+      return parse(s, p, resin);
+    }
   };
+  return res;
 }
 
 /**
@@ -581,24 +737,45 @@ export function rep<T>(parser: Parser<T>): IParser<T[]> {
  * This will _not_ successfully parse an empty array.
  */
 export function rep1<T>(parser: Parser<T>, name?: string): IParser<T[]> {
-  let mps: IParser<T>;
-  return {
-    parse(s: string, p: number) {
-      const ps = mps || (mps = unwrap(parser));
-      const seq: T[] = [];
-      let c = p;
-      let res: Result<T>;
+  let ps: IParser<T>;
+  function parse(s: string, p: number, resin?: Success<T[]>): Result<T[]> {
+    resin = resin || [null, 0];
+    let seq: T[];
+    let c = p;
+    let res: Result<T>;
+
+    // unroll to avoid weird allocation
+    res = ps.parse(s, c, resin as any);
+    if (res.length) {
+      (seq = []).push(res[0]);
+      c = res[1];
+
       while (1) {
-        res = ps.parse(s, c);
-        if (!isFailure(res)) {
+        res = ps.parse(s, c, resin as any);
+        if (res.length) {
           seq.push(res[0]);
           c = res[1];
         } else {
-          return seq.length > 0 ? [seq, c, detailedFail & 2 && getCauseCopy()] : fail(c, detailedFail & 2 && `expected at least one ${name || 'item'}`, detailedFail & 2 && getCauseCopy());
+          resin[0] = seq;
+          resin[1] = c;
+          if (detailedFail) resin[2] = getCauseCopy();
+          return resin;
         }
       }
+    } else {
+      return fail(c, detailedFail && `expected at least one ${name || 'item'}`, detailedFail && getCauseCopy());
+    }
+
+  }
+  let res: IParser<T[]>;
+  res = {
+    parse(s: string, p: number, resin?: Success<T[]>) {
+      ps = unwrap(parser);
+      res.parse = parse;
+      return parse(s, p, resin);
     }
   };
+  return res;
 }
 
 /**
@@ -608,28 +785,29 @@ export function rep1<T>(parser: Parser<T>, name?: string): IParser<T[]> {
  */
 export function str(...strings: string[]): IParser<string> {
   const len = strings.length;
-  const res: Success<string> = ['', 0];
   if (len === 1) {
     const str = strings[0];
     const len = str.length;
 
     if (len === 1) {
       return {
-        parse(s: string, p: number) {
+        parse(s: string, p: number, res?: Success<string>) {
           if (s[p] === str) {
+            res = res || ['', 0];
             res[0] = str;
             res[1] = p + 1;
             return res;
-          } else return fail(p, detailedFail & 2 && `expected '${str}'`);
+          } else return fail(p, detailedFail && `expected '${str}'`);
         }
       }
     } else {
       let i: number, j: number;
       return {
-        parse(s: string, p: number) {
+        parse(s: string, p: number, res?: Success<string>) {
           for (i = 0, j = p + i; i < len; i++, j++) {
-            if (str[i] !== s[j]) return fail(p, detailedFail & 2 && `expected '${str}'`);
+            if (str[i] !== s[j]) return fail(p, detailedFail && `expected '${str}'`);
           }
+          res = res || ['', 0];
           res[0] = str;
           res[1] = p + len;
           return res;
@@ -638,7 +816,7 @@ export function str(...strings: string[]): IParser<string> {
     }
   } else {
     return {
-      parse(s: string, p: number) {
+      parse(s: string, p: number, res?: Success<string>) {
         outer: for (let i = 0; i < len; i++) {
           const n = strings[i];
           const nlen = n.length;
@@ -649,11 +827,12 @@ export function str(...strings: string[]): IParser<string> {
           for (let j = 0; j < nlen; j++) {
             if (n[j] !== s[p + j]) continue outer;
           }
+          res = res || ['', 0];
           res[0] = n;
           res[1] = p + nlen;
           return res;
         }
-        return fail(p, detailedFail & 2 && `expected ${strings.length > 1 ? 'one of ' : ''}${strings.map(s => `'${s}'`).join(', ')}`);
+        return fail(p, detailedFail && `expected ${strings.length > 1 ? 'one of ' : ''}${strings.map(s => `'${s}'`).join(', ')}`);
       }
     };
   }
@@ -666,15 +845,26 @@ export function str(...strings: string[]): IParser<string> {
  * @param parser - the parser to apply to the input
  */
 export function opt<T>(parser: Parser<T>): IParser<null|T> {
-  let mps: IParser<T>;
-  return {
-    parse(s: string, p: number) {
-      const ps = mps || (mps = unwrap(parser));
-      const res = ps.parse(s, p);
-      if (!isFailure(res)) return res;
-      else return [null, p];
+  let ps: IParser<T>;
+  function parse(s: string, p: number, resin?: Success<T>): Result<null|T> {
+    resin = resin || [null, 0];
+    const res = ps.parse(s, p, resin);
+    if (res.length) return res;
+    else {
+      resin[0] = null;
+      resin[1] = p;
+      return resin;
+    }
+  }
+  let res: IParser<null|T>;
+  res = {
+    parse(s: string, p: number, resin?: Success<null|T>) {
+      ps = unwrap(parser);
+      res.parse = parse;
+      return parse(s, p, resin);
     }
   };
+  return res;
 }
 
 /**
@@ -687,32 +877,44 @@ export function opt<T>(parser: Parser<T>): IParser<null|T> {
  * This will successfully parse an empty array.
  */
 export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'disallow'|'require' = 'disallow'): IParser<T[]> {
-  let mps1: IParser<T>;
-  let mps2: IParser<any>;
-  return {
-    parse(s: string, p: number) {
-      const ps1 = mps1 || (mps1 = unwrap(parser));
-      const ps2 = mps2 || (mps2 = unwrap(sep));
-      const seq: T[] = [];
-      let c = p;
-      while (1) {
-        const res = ps1.parse(s, c);
-        if (!isFailure(res)) {
-          seq.push(res[0]);
-          c = res[1];
-          const r = ps2.parse(s, c);
-          if (isFailure(r)) {
-            if (trail === 'require') return fail(c, detailedFail & 2 && `expected separator`);
-            break;
-          } else c = r[1];
-        } else if (trail === 'disallow' && seq.length) {
-          if (detailedFail & 2) return fail(_cause[0], _cause[1], [c, `unexpected separator`]);
-          else return fail(c, false);
-        } else break;
-      }
-      return [seq, c, detailedFail & 2 && getCauseCopy()];
+  let ps1: IParser<T>;
+  let ps2: IParser<any>;
+  function parse(s: string, p: number, resin?: Success<T[]>): Result<T[]> {
+    resin = resin || [null, 0];
+    let seq: T[] = [];
+    let c = p;
+    let m = p;
+    let rr: T;
+    while (1) {
+      const res = ps1.parse(s, c, resin as any);
+      if (res.length) {
+        m = c;
+        c = res[1];
+        rr = res[0];
+        const r = ps2.parse(s, c, resin as any);
+        if (!r.length) {
+          if (trail === 'require') return fail(m, detailedFail && `expected separator`);
+          seq.push(rr);
+          break;
+        } else c = r[1];
+        seq.push(rr);
+      } else if (trail === 'disallow' && seq && seq.length) {
+        if (detailedFail) return fail(_cause[0], _cause[1], [c, `unexpected separator`]);
+        else return fail(c, false);
+      } else break;
+    }
+    return [seq, c, detailedFail && getCauseCopy()];
+  }
+  let res: IParser<T[]>;
+  res = {
+    parse(s: string, p: number, resin?: Success<T[]>) {
+      ps1 = unwrap(parser);
+      ps2 = unwrap(sep);
+      res.parse = parse;
+      return parse(s, p, resin);
     }
   };
+  return res;
 }
 
 /**
@@ -726,33 +928,58 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
  * This will _not_ successfully parse an empty array.
  */
 export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, name?: string, trail: 'allow'|'disallow'|'require' = 'disallow'): IParser<T[]> {
-  let mps1: IParser<T>;
-  let mps2: IParser<any>;
-  return {
-    parse(s: string, p: number) {
-      const ps1 = mps1 || (mps1 = unwrap(parser));
-      const ps2 = mps2 || (mps2 = unwrap(sep));
-      const seq: T[] = [];
-      let c = p;
-      let res: Result<T>;
-      while (1) {
-        res = ps1.parse(s, c);
-        if (!isFailure(res)) {
-          seq.push(res[0]);
-          c = res[1];
-          const r = ps2.parse(s, c);
-          if (isFailure(r)) {
-            if (trail === 'require') return fail(c, detailedFail & 2 && `expected separator`);
-            break;
-          } else c = r[1];
-        } else if (trail === 'disallow' && seq.length) {
-          if (detailedFail & 2) return fail(_cause[0], _cause[1], [c, `unexpected separator`]);
-          else return fail(c, false);
-        } else break;
+  let ps1: IParser<T>;
+  let ps2: IParser<any>;
+  function parse(s: string, p: number, resin?: Success<T[]>): Result<T[]> {
+    resin = resin || [null, 0];
+    let seq: T[];
+    let c = p;
+    let res: Result<T>;
+
+    // unroll to avoid weird allocation
+    res = ps1.parse(s, c, resin as any);
+    if (res.length) {
+      (seq = []).push(res[0]);
+      c = res[1];
+      const r = ps2.parse(s, c, resin as any);
+      if (!r.length) {
+        if (trail === 'require') return fail(c, detailedFail && `expected separator`);
+      } else {
+        c = r[1];
+
+        // loop for the rest
+        while (1) {
+          res = ps1.parse(s, c, resin as any);
+          if (res.length) {
+            seq.push(res[0]);
+            c = res[1];
+            const r = ps2.parse(s, c, resin as any);
+            if (!r.length) {
+              if (trail === 'require') return fail(c, detailedFail && `expected separator`);
+              break;
+            } else c = r[1];
+          } else if (trail === 'disallow' && seq && seq.length) {
+            if (detailedFail) return fail(_cause[0], _cause[1], [c, `unexpected separator`]);
+            else return fail(c, false);
+          } else break;
+        }
       }
-      return seq.length > 0 ? [seq, c, detailedFail & 2 && getCauseCopy()] : fail(isFailure(res) ? _cause[0] : c, detailedFail & 2 && `expected at least one ${name || 'item'}${isFailure(res) ? `: ${_cause[1]}` : ''}`, detailedFail & 2 && getCauseCopy());
+    } else return fail(c, detailedFail && `expected at least one ${name || 'item'}`);
+
+    resin[0] = seq;
+    resin[1] = c;
+    return resin;
+  }
+  let res: IParser<T[]>;
+  res = {
+    parse(s: string, p: number, resin?: Success<T[]>) {
+      ps1 = unwrap(parser);
+      ps2 = unwrap(sep);
+      res.parse = parse;
+      return parse(s, p, resin);
     }
   };
+  return res;
 }
 
 /**
@@ -764,18 +991,47 @@ export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, name?: string, t
  * @param match - the matcher function applied to the result of the first
  */
 export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>): IParser<U> {
-  let mps: IParser<T>;
-  return {
-    parse(s: string, p: number) {
-      const ps = mps || (mps = unwrap(parser));
-      let c = p;
-      const r = ps.parse(s, c);
-      if (isFailure(r)) return r;
-      c = r[1];
-      const n = select(r[0]);
-      return n.parse(s, c);
+  let ps: IParser<T>;
+  function parse(s: string, p: number, res?: Success<U>): Result<U> {
+    res = res || [null, 0];
+    let c = p;
+    const r = ps.parse(s, c, res as any);
+    if (!r.length) return r as any;
+    c = r[1];
+    const n = select(r[0]);
+    if (!n) return fail(c, detailedFail && `chain selection failed`);
+    return n.parse(s, c, res as any);
+  }
+  let res: IParser<U>;
+  res = {
+    parse(s: string, p: number, resin?: Success<U>) {
+      ps = unwrap(parser);
+      res.parse = parse;
+      return parse(s, p, resin);
     }
   };
+  return res;
+}
+
+export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string): Parser<T> {
+  let ps: IParser<T>;
+  function parse(s: string, p: number, res?: Success<T>) {
+    res = res || [null, 0];
+    const r = ps.parse(s, p, res);
+    if (!r.length) return r;
+    const v = verify(r[0]);
+    if (v === true) return r;
+    else return fail(r[1], v);
+  }
+  let res: IParser<T>;
+  res = {
+    parse(s: string, p: number, resin?: Success<T>) {
+      ps = unwrap(parser);
+      res.parse = parse;
+      return parse(s, p, resin);
+    }
+  };
+  return res;
 }
 
 /**
@@ -786,17 +1042,24 @@ export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>): IP
  * @param fn - the transformer to apply to the result
  */
 export function map<T, U>(parser: Parser<T>, fn: (t: T) => U): IParser<U> {
-  let mps: IParser<T>;
-  return {
-    parse(s: string, p: number) {
-      const ps = mps || (mps = unwrap(parser));
-      const r = ps.parse(s, p);
-      if (!isFailure(r)) {
-        (r as unknown[])[0] = fn(r[0]);
-        return r as any;
-      } else return r;
+  let ps: IParser<T>;
+  function parse(s: string, p: number, res?: Success<U>): Result<U> {
+    res = res || [null, 0];
+    const r = ps.parse(s, p, res as any);
+    if (r.length) {
+      (r as unknown[])[0] = fn(r[0]);
+      return r as any;
+    } else return r as any;
+  }
+  let res: IParser<U>;
+  res = {
+    parse(s: string, p: number, resin?: Success<U>) {
+      ps = unwrap(parser);
+      res.parse = parse;
+      return parse(s, p, resin);
     }
   };
+  return res;
 }
 
 /**
@@ -807,14 +1070,82 @@ export function map<T, U>(parser: Parser<T>, fn: (t: T) => U): IParser<U> {
  * @param content - the primary content parser
  * @param right - the right bracket parser
  */
-export function bracket<T>(left: Parser<any>, content: Parser<T>, right: Parser<any>): IParser<T> {
-  const o = seq(left, content, right);
-  return {
-    parse(s: string, p: number) {
-      const r = o.parse(s, p);
-      if (isFailure(r)) return r;
-      else return [r[0][1], r[1]];
+export function bracket<T>(left: Parser<any>, content: Parser<T>, right: Parser<any>): IParser<T>
+/**
+ * Creates a parser that parses bracketed content, ignoring the brackets in
+ * the result. The first bracket that matches at the front must also match
+ * at the end.
+ *
+ * @param ends - a list of possible bracket parsers
+ * @param content - the content parser
+ */
+export function bracket<T>(ends: Array<Parser<any>>, content: Parser<T>): IParser<T>;
+
+/**
+ * The underlying implementation for bracket overloads.
+ */
+export function bracket<T>(first: Array<Parser<any>>|Parser<any>, content: Parser<T>, right?: Parser<any>): IParser<T> {
+  if (Array.isArray(first)) { // mirrored options
+    let ends: IParser<any>[];
+    let ps: IParser<T>;
+    const len = first.length;
+    function parse(s: string, p: number, resin?: Success<T>): Result<T> {
+      resin = resin || [null, 0];
+      let end: IParser<any>;
+      for (let i = 0; i < len; i++) {
+        const res = ends[i].parse(s, p, resin as any);
+        if (res.length) {
+          end = ends[i];
+          break;
+        }
+      }
+      if (!end) return fail(p, detailedFail && `expected opening bracket`);
+      const res = ps.parse(s, resin[1], resin);
+      if (!res.length) return res;
+      const v = res[0];
+      const c = res[1];
+      const fin = end.parse(s, c, resin as any);
+      if (!fin.length) return fail(c, detailedFail && `expected matching end bracket`);
+      resin[0] = v;
+      return resin;
     }
+    let res: IParser<T>;
+    res = {
+      parse(s: string, p: number, resin?: Success<T>) {
+        ps = unwrap(content);
+        ends = first.map(p => unwrap(p));
+        res.parse = parse;
+        return parse(s, p, resin);
+      }
+    };
+    return res;
+  } else { // individual start and end bracket parsers
+    let ps1: IParser<any>;
+    let ps2: IParser<T>;
+    let ps3: IParser<any>;
+    function parse(s: string, p: number, resin?: Success<T>): Result<T> {
+      resin = resin || [null, 0];
+      const r1 = ps1.parse(s, p, resin as any);
+      if (!r1.length) return r1;
+      const r2 = ps2.parse(s, r1[1], resin);
+      if (!r2.length) return r2;
+      const r = r2[0];
+      const r3 = ps3.parse(s, r2[1], resin as any);
+      if (!r3.length) return r3;
+      resin[0] = r;
+      return resin;
+    }
+    let res: IParser<T>;
+    res = {
+      parse(s: string, p: number, resin?: Success<T>) {
+        ps1 = unwrap(first);
+        ps2 = unwrap(content);
+        ps3 = unwrap(right);
+        res.parse = parse;
+        return parse(s, p, resin);
+      }
+    }
+    return res;
   }
 }
 
@@ -894,29 +1225,108 @@ export function seq<A, B, C, D, E, F, G, H, I, J, K, L, M, N, O>(p1: Parser<A>, 
  * The underlying implementation for the various arities of `seq`.
  */
 export function seq(...parsers: Array<Parser<any>>): IParser<any[]> {
-  let mps: Array<IParser<any>>;
-  return {
-    parse(s: string, p: number) {
-      const ps = mps || (mps = parsers.map(unwrap));
-      const res: any[] = [];
-      let c = p;
-      let causes: Cause[];
-      const len = ps.length;
-      for (let i = 0; i < len; i++) {
-        const lps = ps[i];
-        const r = lps.parse(s, c);
-        if (isFailure(r)) {
-          if (detailedFail & 2) {
+  let ps: Array<IParser<any>>;
+  const len = parsers.length;
+  function parse(s: string, p: number, resin?: Success<any[]>) {
+    resin = resin || [null, 0];
+    let res: any[];
+    let c = p;
+    let causes: Cause[];
+    let r: Result<any>;
+
+    // unroll the first pass to avoid weird allocation
+    r = ps[0].parse(s, c, resin as any);
+    if (!r.length) {
+      if (detailedFail) {
+        const cause = getLatestCause(causes, getCauseCopy());
+        return fail(cause[0], cause[1], cause[2], cause[3]);
+      } else return r;
+    } else {
+      if (detailedFail && r[2]) (causes || (causes = [])).push(r[2]);
+      (res = []).push(r[0]);
+      c = r[1];
+
+      // loop for the second on
+      for (let i = 1; i < len; i++) {
+        r = ps[i].parse(s, c, resin as any);
+        if (!r.length) {
+          if (detailedFail) {
             const cause = getLatestCause(causes, getCauseCopy());
             return fail(cause[0], cause[1], cause[2], cause[3]);
           } else return r;
         } else {
-          if (r[2] && detailedFail & 2) (causes || (causes = [])).push(r[2]);
+          if (detailedFail && r[2]) (causes || (causes = [])).push(r[2]);
           res.push(r[0]);
           c = r[1];
         }
       }
-      return [res, c];
+    }
+
+    resin[0] = res;
+    resin[1] = c;
+    if (detailedFail) res[2] = causes;
+    return resin;
+  }
+  let res: IParser<any[]>;
+  res = {
+    parse(s: string, p: number, resin?: Success<any[]>) {
+      ps = parsers.map(unwrap);
+      res.parse = parse;
+      return parse(s, p, resin);
     }
   };
+  return res;
+}
+
+/**
+ * Creates a parser that applies the given parsers in sequence. If one fails,
+ * the created parser will also fail. The results are discareded.
+ */
+export function check(...parsers: Array<Parser<any>>): IParser<null> {
+  let ps: Array<IParser<any>>;
+  const len = parsers.length;
+  function parse(s: string, p: number, resin?: Success<null>) {
+    resin = resin || [null, 0];
+    let c = p;
+    let causes: Cause[];
+    let r: Result<any>;
+
+    // unroll once to avoid weird allocation
+    r = ps[0].parse(s, c, resin as any);
+    if (!r.length) {
+      if (detailedFail) {
+        const cause = getLatestCause(causes, getCauseCopy());
+        return fail(cause[0], cause[1], cause[2], cause[3]);
+      } else return r;
+    } else {
+      if (detailedFail && r[2]) (causes || (causes = [])).push(r[2]);
+      c = r[1];
+
+      for (let i = 1; i < len; i++) {
+        r = ps[i].parse(s, c, resin as any);
+        if (!r.length) {
+          if (detailedFail) {
+            const cause = getLatestCause(causes, getCauseCopy());
+            return fail(cause[0], cause[1], cause[2], cause[3]);
+          } else return r;
+        } else {
+          if (detailedFail && r[2]) (causes || (causes = [])).push(r[2]);
+          c = r[1];
+        }
+      }
+    }
+
+    resin[0] = null;
+    resin[1] = c;
+    return resin;
+  }
+  let res: IParser<null>;
+  res = {
+    parse(s: string, p: number, resin?: Success<null>) {
+      ps = parsers.map(unwrap);
+      res.parse = parse;
+      return parse(s, p, resin);
+    }
+  };
+  return res;
 }

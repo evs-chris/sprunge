@@ -1,5 +1,5 @@
-import { parser, map, rep1, rep, seq, str, alt, bracket } from './index';
-import { concat, JNum, JString, JIdentifier, JStringEscape } from './json';
+import { parser, concat, map, rep1, rep, seq, str, alt, bracket } from './index';
+import { JNum, JString, JIdentifier, JStringEscape } from './json';
 
 export const Identifier = map(rep1(alt(JIdentifier, JStringEscape)), r => concat(r));
 export const DotPath = map(seq(str('.'), Identifier), r => r[1]);

@@ -32,9 +32,14 @@ export const JStringUnicode: IParser<string> = map(
   r => String.fromCharCode(parseInt(r[1], 16))
 );
 
+export const JStringHex: IParser<string> = map(
+  seq(str('\\x'), chars(2, hex)),
+  r => String.fromCharCode(parseInt(r[1], 16))
+);
+
 export const JString = alt(
-  bracket(str('"'), map(rep(alt('string part', read1To('"\\'), JStringUnicode, JStringEscape)), r => concat(r)), str('"')),
-  bracket(str('\''), map(rep(alt('string part', read1To('\'\\'), JStringUnicode, JStringEscape)), r => concat(r)), str('\''))
+  bracket(str('"'), map(rep(alt('string part', read1To('"\\'), JStringUnicode, JStringHex, JStringEscape)), r => concat(r)), str('"')),
+  bracket(str('\''), map(rep(alt('string part', read1To('\'\\'), JStringUnicode, JStringHex, JStringEscape)), r => concat(r)), str('\''))
 );
 export const JBool = map(str('true', 'false'), v => v === 'true');
 export const JNull = map(str('null'), () => null);

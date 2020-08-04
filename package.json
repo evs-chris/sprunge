@@ -10,20 +10,21 @@
     "parser"
   ],
   "devDependencies": {
-    "typescript": "^3.7",
-    "rollup": "^1",
+    "@types/qunit": "^2.9",
     "eslint": "^6",
     "qunit": "^2.9",
-    "@types/qunit": "^2.9",
-    "source-map-support": "^0.5"
+    "rollup": "^1.32.0",
+    "rollup-plugin-sourcemaps": "^0.5",
+    "source-map-support": "^0.5",
+    "typescript": "^3.7"
   },
   "scripts": {
     "build:code": "tsc -p config/lib.tsconfig.json",
-    "bundle:code": "rollup lib/index.js --file lib/sprunge.umd.js --format umd --name sprunge",
+    "bundle:code": "rollup lib/csv.js --file lib/sprunge.umd.js --format umd --name sprunge",
     "build": "npm run build:code; npm run bundle:code",
     "clean": "rm -r lib build",
     "build:test": "tsc -p config/test.tsconfig.json",
-    "bundle:test": "rollup build/test/test/index.js --file build/test.js --format iife --name sprunge_test --sourcemap",
+    "bundle:test": "rollup build/test/test/index.js --file build/test.js --format iife --name sprunge_test --sourcemap --plugin rollup-plugin-sourcemaps",
     "test": "npm run build:test; npm run bundle:test; qunit --require 'source-map-support/register' build/test.js"
   },
   "files": [

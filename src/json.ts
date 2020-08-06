@@ -1,4 +1,4 @@
-import { concat, parser, Parser, IParser, bracket, chars, check, alt, map, repsep, rep, seq, opt, skip, str, read1, read, read1To } from './index';
+import { concat, parser, Parser, IParser, bracket, chars, notchars, check, alt, map, repsep, rep, seq, opt, skip, str, read1, read, read1To } from './index';
 
 const _hex = 'abcdefABCDEF';
 export const digits = '0123456789';
@@ -23,7 +23,7 @@ export const JNum: IParser<number> = map(
 );
 
 export const JStringEscape: IParser<string> = map(
-  seq(str("\\"), chars(1)),
+  seq(str("\\"), notchars(1, 'xu')),
   r => escmap[r[1]] || r[1]
 );
 

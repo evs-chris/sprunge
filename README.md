@@ -35,7 +35,7 @@ I'm glad you asked! [Chevrotain](https://sap.github.io/chevrotain), one of the f
 
 With the usual grain of salt that comes with benchmarks, sprunge when run against the same sample 1,000 times with 5 runs averaged achieves 520.56 ops/s on Firefox and 590.59 ops/s on Chromium, which puts it at 3rd on Firefox and Chromium. It should also be noted that `JSON.parse` absolutely murders all of these parsing libraries, doing something like 6,300 ops/s on Firefox and 10,500 ops/s on Chromium, so you probably don't want to roll your own JSON parser unless you have a _good_ reason. The JSON grammar is a fairly simple, so performance from one library to the next will likely vary considerably from grammar to grammar. I'm also not sure how up to date the libraries in that benchmark are, so there could be significant perormance improvements in any or all of them. Some of the parser generators also have more than one mode, like PEG.js, which has a fast parsing mode and a smaller code mode. It looks like the fast parsing mode is about four times faster than the smaller code mode, and I have no idea which on is used in the benchmark.
 
-The primitive built-in parsers look for a certain character out of a string as a stopping point. The first run of sprunge just used `indexOf` which resulted in about 100% more overhead compared to what it does now, which is to sort the string of characters that serves as the haystack at parser creation and then uses an unrolled loop, a linear search, or a binary search within that string when matching, depending on the length of the string. It's a little funky, but ~250 ops/s is certainly something. The other unusual thing sprunge does is use a common `Failure` instance to indicate that a parser did not succeed. This single array instance prevents tons of allocations, as failure is more common than success when applying parsers. Detailed error messages are also off by default in sprunge, so if parsing fails, you only get a position within the input string at which parsing failed. With detailed error messages enabled, you also get an error message and possibly an array of further causes from something like applying alternates where every one of them failed. Individual parsers are responsible for propagating error information upward depending on the detailed errors flag. Some of the primitive string parsers also pre-allocate a single result array and simply swap out the values returning the same array. This is relatively safe, as combinators immediately pull out the parsed value and position, and a primitive string parser cannot appear in the callstack twice. The little bit of wackiness with failures and pre-allocated primitive returns in a further 50% performance improvement, most of which is lost by turning detailed errors on (365.65 ops/s on Chromium).
+The primitive built-in parsers look for a certain character out of a string as a stopping point. The first run of sprunge just used `indexOf` which resulted in about 100% more overhead compared to what it does now, which is to sort the string of characters that serves as the haystack at parser creation and then uses an unrolled loop, a linear search, or a binary search within that string when matching, depending on the length of the string. It's a little funky, but ~250 ops/s is certainly something. The other unusual thing sprunge does is use a common `Failure` instance to indicate that a parser did not succeed. This single array instance prevents tons of allocations, as failure is more common than success when applying parsers. Detailed error messages are also off by default in sprunge, so if parsing fails, you only get a position within the input string at which parsing failed. With detailed error messages enabled, you also get an error message and possibly an array of further causes from something like applying alternates where every one of them failed. Individual parsers are responsible for propagating error information upward depending on the detailed errors flag. The built-in parsers also allow a result array to be passed in, so that each parse attempt doesn't result in an allocation for a result. This allows the same result to be used for every parser, which also eliminates a ton of allocations. The little bit of wackiness with failures and pre-allocated results results in a further 50% performance improvement, most of which is lost by turning detailed errors on (365.65 ops/s on Chromium).
 
 All totaled, without the stuff mentioned in the previous paragraph, sprunge struggled to break 100 ops/s on Firefox and 180 ops/s on Chromium. Oddly, on my phone, a Galaxy s10+, sprunge manages 722.33 ops/s on Brave and 436.83 ops/s on mobile Firefox. I'm not sure if that's due to all the fluff running on my laptop, a Dell XPS 13 i7 9650 running linux, or particularly good optimizations in Samsung's Android spin and the mobile browsers. I also find it comforting that sprunge doesn't take a wild performance hit from running in a different js engine.
 
@@ -94,6 +94,49 @@ This doesn't yet support building parse trees, which can be useful for certain t
 This library is written in Typescript and is distributed as a UMD bundle or ES modules. If you use ES modules for your client-side code and bundle with [rollup](https://rollupjs.org), which I strongly recommend, you theoretically won't have to include any parsers that you don't use in your bundle, as this style of assembling parsers is quite treeshakable. Hopefully this will allow a very rich set of parsers to be included in the core library without additional overhead.
 
 There is a minimal test suite in place that covers the basics of the primitive parsers and combinators and supporting tooling. Error messages are available, but are not currently verified in testing, as I'm not positive they've reached their final form. There are also probably several parsers that need to be added before this is useful for more than very simple grammars.
+
+There's also no way to supply any context in a chunk of a parse tree, and I think that could be useful if a bit expensive. Of course, there's nothing stopping you from writing a `context` parser that manages its own stack, but I haven't run into a a usecase that requires that yet for experimentation.
+
+### Why `sprunge`?
+
+Ah, yes. Finally asking the real questions.
+
+Have you ever seen _Futurama_? In the _Bender's Big Score_, there is a race of nudist aliens that have a special organ that detects information called a sprunger. Yep.
+
+## A brief detour into my parser/combinator head canon.
+
+What exactly is a parser, anyways? Well, to me, a parser is function that accepts an input string and produces either a success or a failure. For the purposes of this library, it also takes a position in the input string from which it should start trying to parse. That alone is not particularly useful, but it gives you a solid foundation for the next bit of parser/combinator - the combinating. A combinator is a parser that uses other parsers to parse. It still takes the same input and position and returns the same success or failure, but it does so by delegating to other parsers. It doesn't care if the other parsers also delegate to further parsers, which delegate to further parsers, which delegate to turtles. This allows a few primitive parsers, such as ones that will read certain characters, not read certain characters, or skip certain characters, to be combined to build more complex parsers, such as ones that will read a certain character, possibly followed by a number of other character sequences, finally followed by the initial character. The combinator doesn't care about what its member parsers are doing, only that they tell it whether they succeeded or failed, which is all a parser does anyways. It's so simple even I can follow it.
+
+## Parsers
+
+Here's the list of built-ins for sprunging:
+
+| parser | args | description | fails? |
+| ------ | ---- | ----------- | ------ |
+| `skip` | `string` | skips any chars in the input, advancing the input position | no |
+| `read` | `string` | reads any chars in the input, advancing the input position and returning the matched characters as a string | no |
+| `read1` | `string` | like `read`, but requires at least one character to match | yes |
+| `chars` | count: `number`, allowed?: `string` | reads `count` characters from the input, and will only match characters in `allowed` if it is supplied | yes |
+| `notchars` | count: `numbers`, disallowed: `string` | reads `count` characters from the input that are not in `disallowed` | yes |
+| `readTo` | stop: `string`, end?: true | reads characters from the input until one in `stop` is reached, and if `end` is true, the end of the input is an acceptable end for a match | yes |
+| `read1To` | stop: `string`, end?: `true` | like `readTo`, but must match at least one character | yes |
+| `readToDyn` | state: `{ stop: string }`, end?: `true` | like `readTo`, but the target stop characters can change after the parser is created | yes |
+| `read1ToDyn` | state: `{ stop: string }`, end?: true | like `readToDyn`, but must match at least one character | yes |
+| `opt` | `Parser` | if the given parser succeeds, that result will be passed through, otherwise, `opt` will succeed with a `null` result | no |
+| `alt` | `...Parser[]` | applies the given parsers in order until one succeeds, and if none succeed, `alt` will fail | yes |
+| `verify` | `Parser`, verify function | if the given parser succeeds, its result is passed to the verify function, which can pass or fail the `verify` based on its result - `true` to pass or a `string` to fail | yes |
+| `map` | `Parser`, map function | if the given parser succeeds, its result is passed through the given map function for the `map` to return as a success | yes |
+| `str` | `...string` | matches one of the given strings exactly | yes |
+| `seq` | `...Parser[]` | matches the given parsers in order, producing a tuple of the matched results if all of the parsers succeed | yes |
+| `bracket` | left: `Parser`, content: `Parser`, right: `Parser` | skips the `left` content, matches the `content`, and skips the `right` content to produce the `content` result if all three succeed | yes |
+| `bracket` | ends: `Parser[]`, content: `Parser` | skips one of the given `ends`, matches the `content`, and skips the initially matched `ends` parser again to produce the `content` result if all three succeed | yes |
+| `check` | `...Parser[]` | like `seq`, but discards the results of the given parsers, always producing a `null` success result if all of the given parsers succeed | yes |
+| `rep` | `Parser` | matches the given parser as many times as possible, producing an array of results | no |
+| `rep1` | `Parser` | like `rep`, but requires at least one match | yes |
+| `repsep` | content: `Parser`, separator: `Parser`, trail?: `'allow'|'disallow'|'require'` | matches the `content` followed by the `separator` as many times as possible - a trailing separator for the last result may be allowed, forbidden, or required as necessary - the default is to allow a trailing separator | no |
+| `rep1sep` | content: `Parser`, separator: `Parser`, trail?: `'allow'|'disallow'|'require'` | like `repsep`, but requires at least one match | yes |
+
+There are also parsers for CSV, keypaths, and a relaxed form of JSON included as modules.
 
 ### Building
 

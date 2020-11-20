@@ -1,3 +1,11 @@
+## 0.0.3
+
+2020-11-20
+
+### Not bugs
+
+* Added a `skip1` parser that requires matching at least one character.
+
 ## 0.0.2
 
 2020-08-06

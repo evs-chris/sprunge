@@ -1,4 +1,4 @@
-import { skip, read, read1, chars, readTo, read1To, alt, rep, rep1, str, opt, repsep, rep1sep, chain, map, bracket, seq, check } from '../src/index';
+import { skip, skip1, read, read1, chars, readTo, read1To, alt, rep, rep1, str, opt, repsep, rep1sep, chain, map, bracket, seq, check } from '../src/index';
 
 const q = QUnit;
 
@@ -9,6 +9,13 @@ q.test('skip', t => {
   t.equal(p.parse('  \t \n\ra  b', 0)[1], 6, 'skips 6 whitespace chars');
   t.equal(p.parse('asdfas', 0)[1], 0, 'does not skip non-whitespace chars');
 });
+
+q.test('skip1', t => {
+  const p = skip1(' \t\r\n');
+  t.equal(p.parse(' \ta', 0)[1], 2, 'skips 2 whitespace chars');
+  t.equal(p.parse('foo  ', 0).length, 0, 'fails to not skip any chars');
+  t.equal(p.parse('foo  ', 1, ['', 1]).length, 0, 'fails to not skip any chars with a previous success passed in');
+})
 
 q.test('read', t => {
   const p = read('fo');

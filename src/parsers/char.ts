@@ -54,6 +54,27 @@ export function skip(chars: string): IParser<''> {
 }
 
 /**
+ * Creates a parser that skips at least one of the given characters.
+ *
+ * @param chars - the charaters to skip
+ *
+ * `chars` will be sorted for use in the returned parser to work with a
+ * somewhat faster binary search.
+ */
+export function skip1(chars: string): IParser<''> {
+  const sorted = chars.split('').sort().join('');
+  const contains = getSearch(chars);
+  return {
+    parse(s: string, p: number, res?: Success<''>) {
+      res = res || ['', 0];
+      res[1] = seekWhileChar(s, p, sorted, contains);
+      if (res[1] === p) return fail(p, detailedFail && `expected at least one of ${JSON.stringify(chars)}`);
+      return res;
+    }
+  };
+}
+
+/**
  * Creates a parser that reads a string consisting of the given characters.
  *
  * @param chars - the characters to read

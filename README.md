@@ -114,6 +114,7 @@ Here's the list of built-ins for sprunging:
 | parser | args | description | fails? |
 | ------ | ---- | ----------- | ------ |
 | `skip` | `string` | skips any chars in the input, advancing the input position | no |
+| `skip1` | `string` | skips at least one char in the input, advancing the input position | yes |
 | `read` | `string` | reads any chars in the input, advancing the input position and returning the matched characters as a string | no |
 | `read1` | `string` | like `read`, but requires at least one character to match | yes |
 | `chars` | count: `number`, allowed?: `string` | reads `count` characters from the input, and will only match characters in `allowed` if it is supplied | yes |

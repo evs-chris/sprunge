@@ -94,3 +94,19 @@ export function istr(...strings: string[]): IParser<string> {
     }
   };
 }
+
+/**
+ * Creates a parser that matches the full substring of the given parser.
+ *
+ * @param parser - the parser used to determine the appropriate substring
+ */
+export function outer(parser: IParser<any>): IParser<string> {
+  return {
+    parse(s: string, p: number, res?: Success<string>) {
+      res = parser.parse(s, p, res || ['', 0]) as any;
+      if (!res.length) return res;
+      res[0] = s.substring(p, res[1]);
+      return res;
+    }
+  };
+}

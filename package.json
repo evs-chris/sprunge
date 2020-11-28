@@ -1,6 +1,6 @@
 {
   "name": "sprunge",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "a parser combinator library",
   "main": "./lib/sprunge.umd.js",
   "types": "./lib/index.d.ts",
@@ -9,6 +9,10 @@
   "keywords": [
     "parser"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/evs-chris/sprunge.git"
+  },
   "devDependencies": {
     "@types/qunit": "^2.9",
     "eslint": "^6",

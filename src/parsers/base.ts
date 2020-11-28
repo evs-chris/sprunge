@@ -105,6 +105,15 @@ export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>): IP
   return res;
 }
 
+/**
+ * Creates a parser that applies a verification function to another parser's result.
+ * If the function returns true, the verify parser will succeed witht the nested
+ * parser's result. If the function returns a string, the verify parser will fail
+ * with that as the message.
+ *
+ * @param parser - the nested parser to apply
+ * @param verify - the verification function to apply
+ */
 export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string): Parser<T> {
   let ps: IParser<T>;
   function parse(s: string, p: number, res?: Success<T>) {

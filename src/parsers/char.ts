@@ -2,6 +2,20 @@ import { getSearch, SearchFn } from '../search';
 import { IParser, Success, fail, detailedFail } from '../base';
 
 /**
+ * Returns a sorted unique list of characters from the input list.
+ *
+ * @param chars - the list of characters to sort and ensure are unique
+ */
+export function charList(chars: string): string {
+  let res = '';
+  const sorted = chars.split('').sort().join('');
+  for (let i = 0; i < sorted.length; i++) {
+    if (!~res.indexOf(sorted[i])) res += sorted[i];
+  }
+  return res;
+}
+
+/**
  * Seeks through the input until a character within chars is encountered.
  *
  * @param s - the input to search
@@ -42,7 +56,7 @@ export function seekWhileChar(s: string, p: number, chars: string, contains: Sea
  * somewhat faster binary search.
  */
 export function skip(chars: string): IParser<''> {
-  const sorted = chars.split('').sort().join('');
+  const sorted = charList(chars);
   const contains = getSearch(chars);
   return {
     parse(s: string, p: number, res?: Success<''>) {
@@ -62,7 +76,7 @@ export function skip(chars: string): IParser<''> {
  * somewhat faster binary search.
  */
 export function skip1(chars: string): IParser<''> {
-  const sorted = chars.split('').sort().join('');
+  const sorted = charList(chars);
   const contains = getSearch(chars);
   return {
     parse(s: string, p: number, res?: Success<''>) {
@@ -85,7 +99,7 @@ export function skip1(chars: string): IParser<''> {
  * somewhat faster binary search.
  */
 export function read(chars: string): IParser<string> {
-  const sorted = chars.split('').sort().join('');
+  const sorted = charList(chars);
   const contains = getSearch(chars);
   return {
     parse(s: string, p: number, res?: Success<string>) {
@@ -110,7 +124,7 @@ export function read(chars: string): IParser<string> {
  * somewhat faster binary search.
  */
 export function read1(chars: string): IParser<string> {
-  const sorted = chars.split('').sort().join('');
+  const sorted = charList(chars);
   const contains = getSearch(chars);
   return {
     parse(s: string, p: number, res?: Success<string>) {
@@ -136,7 +150,7 @@ export function read1(chars: string): IParser<string> {
  * somewhat faster binary search.
  */
 export function chars(count: number, allowed?: string): IParser<string> {
-  const sorted = allowed && allowed.split('').sort().join('');
+  const sorted = allowed && charList(allowed);
   const search = getSearch(sorted || '');
   return {
     parse(s: string, p: number, res?: Success<string>) {
@@ -165,7 +179,7 @@ export function chars(count: number, allowed?: string): IParser<string> {
  * somewhat faster binary search.
  */
 export function notchars(count: number, disallowed: string): IParser<string> {
-  const sorted = disallowed.split('').sort().join('');
+  const sorted = charList(disallowed);
   const search = getSearch(sorted);
   return {
     parse(s: string, p: number, res?: Success<string>) {
@@ -196,7 +210,7 @@ export function notchars(count: number, disallowed: string): IParser<string> {
  * somewhat faster binary search.
  */
 export function readTo(stop: string, end?: true): IParser<string> {
-  const sorted = stop.split('').sort().join('');
+  const sorted = charList(stop);
   const contains = getSearch(stop);
   return {
     parse(s: string, p: number, res?: Success<string>) {

@@ -153,3 +153,19 @@ export function map<T, U>(parser: Parser<T>, fn: (t: T) => U): IParser<U> {
   };
   return res;
 }
+
+/**
+ * Creates a parser that breaks before running a nested parser.
+ *
+ * @param parser - the nested parser
+ * @param name = an optional name for context
+ */
+export function debug<T>(parser: IParser<T>, name?: string): IParser<T> {
+  return {
+    parse(s: string, p: number, res?: Success<T>): Result<T> {
+      name;
+      debugger;
+      return parser.parse(s, p, res);
+    }
+  };
+}

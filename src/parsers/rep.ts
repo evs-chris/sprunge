@@ -198,13 +198,14 @@ export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, name?: string, t
     resin = resin || [null, 0];
     let seq: T[];
     let c = p;
+    let l = c;
     let res: Result<T>;
 
     // unroll to avoid weird allocation
     res = ps1.parse(s, c, resin as any);
     if (res.length) {
       (seq = []).push(res[0]);
-      c = res[1];
+      l = c = res[1];
       const r = ps2.parse(s, c, resin as any);
       if (!r.length) {
         if (trail === 'require') return fail(c, detailedFail && `expected separator`);
@@ -216,18 +217,16 @@ export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, name?: string, t
           res = ps1.parse(s, c, resin as any);
           if (res.length) {
             seq.push(res[0]);
-            c = res[1];
+            l = c = res[1];
             const r = ps2.parse(s, c, resin as any);
             if (!r.length) {
               if (trail === 'require') return fail(c, detailedFail && `expected separator`);
               break;
             } else c = r[1];
           } else if (trail === 'disallow' && seq && seq.length) {
-            if (detailedFail) {
-              const cause = getCause();
-              return fail(cause[0], cause[1], [c, `unexpected separator`]);
-            }
-            else return fail(c, false);
+            resin[0] = seq;
+            resin[1] = l;
+            return resin;
           } else break;
         }
       }

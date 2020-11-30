@@ -16,7 +16,7 @@ const underscores = /_/g;
 export const JNum: IParser<number> = map(
   seq(
     opt(str('-', '+')),
-    read1(digits + '_'), opt(str(".")), read(digits + '_'),
+    read1(digits), read(digits + '_'), opt(str(".")), read(digits + '_'),
     map(opt(seq(str('e', 'E'), opt(str('+', '-')), read1(digits + '_'))), r => r && concat(r))
   ),
   r => +(concat(r).replace(underscores, ''))

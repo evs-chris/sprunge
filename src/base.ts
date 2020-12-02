@@ -22,7 +22,8 @@ export type Failure = [];
 
 // The canonical failure
 export const Fail: Failure = [];
-export let detailedFail = false;
+export type DetailedFail = 0|1|2|3;
+export let detailedFail: DetailedFail = 0;
 /**
  * Controls whether or not detailed error messages should be produced. It can
  * also be used for new combinators to be slightly more performant by not
@@ -30,11 +31,12 @@ export let detailedFail = false;
  *
  * @param on - true if detailed errors should be enabled
  */
-export function detailedErrors(on?: boolean): boolean {
-  return on === (undefined ? detailedFail : (detailedFail = on) === true);
+export function detailedErrors(on?: DetailedFail): DetailedFail {
+  return on === undefined ? detailedFail : (detailedFail = on);
 }
 
 const _cause: Cause = [0, ''];
+const _latestCause: Cause = [0, ''];
 
 /**
  * Returns the shared cause for the last failure. This _will_ change at the
@@ -47,6 +49,16 @@ export function getCause(): Cause { return _cause; }
  * behind a check for detailedErrors().
  */
 export function getCauseCopy(): Cause { return _cause.slice() as Cause; }
+
+/**
+ * Resets the state of the automatically tracked latest cause.
+ */
+export function resetLatestCause() {
+  _latestCause[0] = 0;
+  _latestCause[1] = '';
+  _latestCause[2] = undefined;
+  _latestCause[3] = undefined;
+}
 
 /**
  * Generates a failure by updating the canonical failure instance with the
@@ -62,6 +74,12 @@ export function fail(pos: number, message: false|string, cause?: Cause, causes?:
   _cause[1] = message || '';
   _cause[2] = cause;
   _cause[3] = causes;
+  if (detailedFail & 1 && _cause[0] >= _latestCause[0]) {
+    _latestCause[0] = _cause[0];
+    _latestCause[1] = _cause[1];
+    _latestCause[2] = _cause[2];
+    _latestCause[3] = _cause[3];
+  }
   return Fail;
 }
 
@@ -152,6 +170,8 @@ export interface ErrorOptions {
   contextLines?: number;
   /* Turns on detailed errors for this parser or parse run. */
   detailed?: boolean;
+  /* Turns on detailed error causes for this parser or parse run. */
+  causes?: boolean;
   /* Throws an error rather than returning a ParseError. */
   throw?: boolean;
   /* Produces an error if all of the input is not consumed during parsing. */
@@ -203,7 +223,7 @@ export function getParseError(cause: Cause, input: string, context: number): Par
   const source = lines[markerOffset - 1];
 
   let marker = '';
-  const len = pos - (!~first ? -2 : first) - 1;
+  const len = pos - (!~first ? -1 : first) - 1;
   for (let i = 0; i < len; i++) marker += source[i] === '\t' ? '\t' : ' ';
   marker += '^--';
 
@@ -237,6 +257,7 @@ export function findLatestCause(cause: Cause): Cause {
       if (c[0] > res[0]) res = c;
     }
   }
+  if (_latestCause[0] >= _cause[0] && _latestCause[1] !== cause[1]) return _latestCause;
   return res;
 }
 
@@ -249,12 +270,14 @@ export function findLatestCause(cause: Cause): Cause {
 export function parser<T>(parser: Parser<T>, error?: ErrorOptions): ParseFn<T> {
   let mps: IParser<T>;
   const oerror = error;
-  const det = (error && 'detailed' in error) ? error.detailed : false;
+  const det = (error ? (error.detailed ? 1 : 0) + (error.causes ? 2 : 0) : 0) as DetailedFail;
   const consume = error && error.consumeAll;
   return function parse(input: string, error?: ErrorOptions) {
+    const d = (error ? (error.detailed ? 1 : 0) + (error.causes ? 2 : 0) : det) as DetailedFail;
     let res: Result<T> = [null, 0];
 
-    const d = (error && 'detailed' in error) ? error.detailed : det;
+    if (d & 1) resetLatestCause();
+
     if (d !== detailedFail) {
       const c = detailedFail;
       detailedFail = d;
@@ -265,7 +288,7 @@ export function parser<T>(parser: Parser<T>, error?: ErrorOptions): ParseFn<T> {
     }
 
     if (res.length && (error && 'consumeAll' in error ? error.consumeAll : consume) && res[1] < input.length) {
-      res = fail(res[1], d && `expected to consume all input, but only ${res[1]} chars consumed`);
+      res = fail(res[1], d & 1 && `expected to consume all input, but only ${res[1]} chars consumed`);
     }
 
     if (!res.length) {
@@ -286,7 +309,7 @@ export function parser<T>(parser: Parser<T>, error?: ErrorOptions): ParseFn<T> {
  * A parser that always fails. This is used by parsers that can wrap lazy
  * parsers when the lazy parsers are unitialized at first call.
  */
-export const uninit: any = { parse: (_s: String, p: number) => fail(p, detailedFail && 'uninitialized lazy parser') };
+export const uninit: any = { parse: (_s: String, p: number) => fail(p, detailedFail & 1 && 'uninitialized lazy parser') };
 
 /**
  * Unwraps a lazy parser or returns an immediately failing parser in case the

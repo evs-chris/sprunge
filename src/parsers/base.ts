@@ -56,12 +56,12 @@ export function alt<T>(name?: string|Parser<T>, ...parsers: Array<Parser<T>>): I
     for (let i = 0; i < len; i++) {
       const res = ps[i].parse(s, p, resin);
       if (res.length) return res;
-      else if (detailedFail) (fails || (fails = [])).push(getCauseCopy());
+      else if (detailedFail & 2) (fails || (fails = [])).push(getCauseCopy());
     }
-    if (detailedFail) {
+    if (detailedFail & 2) {
       const cause = getLatestCause(fails, [p, `expected ${nm}`]);
       return fail(cause[0], cause[1], cause[2], cause[3]);
-    } else return fail(p, false);
+    } else return fail(p, detailedFail & 1 && `expected ${nm}`);
   }
   let res: IParser<T>;
   res = {
@@ -91,7 +91,7 @@ export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>): IP
     if (!r.length) return r as any;
     c = r[1];
     const n = select(r[0]);
-    if (!n) return fail(c, detailedFail && `chain selection failed`);
+    if (!n) return fail(c, detailedFail & 1 && `chain selection failed`);
     return n.parse(s, c, res as any);
   }
   let res: IParser<U>;

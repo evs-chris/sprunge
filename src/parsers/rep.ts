@@ -22,7 +22,7 @@ export function rep<T>(parser: Parser<T>): IParser<T[]> {
     if (!res.length) {
       resin[0] = empty;
       resin[1] = c;
-      if (detailedFail) resin[2] = getCauseCopy();
+      if (detailedFail & 2) resin[2] = getCauseCopy();
       return resin;
     } else {
       c = res[1];
@@ -35,7 +35,7 @@ export function rep<T>(parser: Parser<T>): IParser<T[]> {
         seq.push(res[0]);
         c = res[1];
       } else {
-        return [seq || [], c, detailedFail && getCauseCopy()];
+        return [seq || [], c, detailedFail & 2 && getCauseCopy()];
       }
     }
   }
@@ -80,12 +80,12 @@ export function rep1<T>(parser: Parser<T>, name?: string): IParser<T[]> {
         } else {
           resin[0] = seq;
           resin[1] = c;
-          if (detailedFail) resin[2] = getCauseCopy();
+          if (detailedFail & 2) resin[2] = getCauseCopy();
           return resin;
         }
       }
     } else {
-      return fail(c, detailedFail && `expected at least one ${name || 'item'}`, detailedFail && getCauseCopy());
+      return fail(c, detailedFail & 1 && `expected at least one ${name || 'item'}`, detailedFail & 2 && getCauseCopy());
     }
 
   }
@@ -130,7 +130,7 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
       c = res[1];
       r = ps2.parse(s, c, resin as any);
       if (!r.length) {
-        if (trail === 'require') return fail(m, detailedFail && `expected separator`);
+        if (trail === 'require') return fail(m, detailedFail & 1 && `expected separator`);
         resin[0] = [rr];
         resin[1] = c;
         return resin;
@@ -142,7 +142,7 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
     } else {
       resin[0] = empty;
       resin[1] = p;
-      if (detailedFail) resin[2] = getCauseCopy();
+      if (detailedFail & 2) resin[2] = getCauseCopy();
       return resin;
     }
 
@@ -154,20 +154,20 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
         rr = res[0];
         r = ps2.parse(s, c, resin as any);
         if (!r.length) {
-          if (trail === 'require') return fail(m, detailedFail && `expected separator`);
+          if (trail === 'require') return fail(m, detailedFail & 1 && `expected separator`);
           seq.push(rr);
           break;
         } else c = r[1];
         seq.push(rr);
       } else if (trail === 'disallow' && seq && seq.length) {
-        if (detailedFail) {
+        if (detailedFail & 2) {
           const cause = getCause();
           return fail(cause[0], cause[1], [c, `unexpected separator`]);
         }
-        else return fail(c, false);
+        else return fail(c, detailedFail & 1 && `unexpected separator`);
       } else break;
     }
-    return [seq, c, detailedFail && getCauseCopy()];
+    return [seq, c, detailedFail & 2 && getCauseCopy()];
   }
   let res: IParser<T[]>;
   res = {
@@ -208,7 +208,7 @@ export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, name?: string, t
       l = c = res[1];
       const r = ps2.parse(s, c, resin as any);
       if (!r.length) {
-        if (trail === 'require') return fail(c, detailedFail && `expected separator`);
+        if (trail === 'require') return fail(c, detailedFail & 1 && `expected separator`);
       } else {
         c = r[1];
 
@@ -220,7 +220,7 @@ export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, name?: string, t
             l = c = res[1];
             const r = ps2.parse(s, c, resin as any);
             if (!r.length) {
-              if (trail === 'require') return fail(c, detailedFail && `expected separator`);
+              if (trail === 'require') return fail(c, detailedFail & 1 && `expected separator`);
               break;
             } else c = r[1];
           } else if (trail === 'disallow' && seq && seq.length) {
@@ -230,11 +230,11 @@ export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, name?: string, t
           } else break;
         }
       }
-    } else return fail(c, detailedFail && `expected at least one ${name || 'item'}`);
+    } else return fail(c, detailedFail & 1 && `expected at least one ${name || 'item'}`);
 
     resin[0] = seq;
     resin[1] = c;
-    if (detailedFail) resin[2] = getCauseCopy();
+    if (detailedFail & 2) resin[2] = getCauseCopy();
     return resin;
   }
   let res: IParser<T[]>;

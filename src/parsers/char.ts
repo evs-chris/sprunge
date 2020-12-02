@@ -82,7 +82,7 @@ export function skip1(chars: string): IParser<''> {
     parse(s: string, p: number, res?: Success<''>) {
       res = res || ['', 0];
       res[1] = seekWhileChar(s, p, sorted, contains);
-      if (res[1] === p) return fail(p, detailedFail && `expected at least one of ${JSON.stringify(chars)}`);
+      if (res[1] === p) return fail(p, detailedFail & 1 && `expected at least one of ${JSON.stringify(chars)}`);
       return res;
     }
   };
@@ -130,7 +130,7 @@ export function read1(chars: string): IParser<string> {
     parse(s: string, p: number, res?: Success<string>) {
       res = res || ['', 0];
       const r = seekWhileChar(s, p, sorted, contains);
-      if (r === p) return fail(p, detailedFail && `expected one of ${chars}`);
+      if (r === p) return fail(p, detailedFail & 1 && `expected one of ${chars}`);
       res[0] = s.substring(p, r);
       res[1] = r;
       return res;
@@ -158,12 +158,12 @@ export function chars(count: number, allowed?: string): IParser<string> {
         res = res || ['', 0];
         const str = s.substr(p, count);
         if (sorted) {
-          for (let i = 0; i < count; i++) if (!search(sorted, str[i])) return fail(p + i, detailedFail && 'unexpected char');
+          for (let i = 0; i < count; i++) if (!search(sorted, str[i])) return fail(p + i, detailedFail & 1 && 'unexpected char');
         }
         res[0] = str;
         res[1] = p + count;
         return res;
-      } else return fail(p, detailedFail && 'unexpected end of input');
+      } else return fail(p, detailedFail & 1 && 'unexpected end of input');
     }
   };
 }
@@ -186,11 +186,11 @@ export function notchars(count: number, disallowed: string): IParser<string> {
       if (s.length - p >= count) {
         res = res || ['', 0];
         const str = s.substr(p, count);
-        for (let i = 0; i < count; i++) if (search(sorted, str[i])) return fail(p + i, detailedFail && 'unexpected char');
+        for (let i = 0; i < count; i++) if (search(sorted, str[i])) return fail(p + i, detailedFail & 1 && 'unexpected char');
         res[0] = str;
         res[1] = p + count;
         return res;
-      } else return fail(p, detailedFail && 'unexpected end of input');
+      } else return fail(p, detailedFail & 1 && 'unexpected end of input');
     }
   };
 }
@@ -216,7 +216,7 @@ export function readTo(stop: string, end?: true): IParser<string> {
     parse(s: string, p: number, res?: Success<string>) {
       res = res || ['', 0];
       const skipped = seekUntilChar(s, p, sorted, contains);
-      if (!end && skipped >= s.length) return fail(skipped - 1, detailedFail && `expected one of '${stop}' before end of input`);
+      if (!end && skipped >= s.length) return fail(skipped - 1, detailedFail & 1 && `expected one of '${stop}' before end of input`);
       res[0] = skipped ? s.substring(p, skipped) : '';
       res[1] = skipped;
       return res;
@@ -246,7 +246,7 @@ export function read1To(stop: string, end?: true): IParser<string> {
       const res = op.parse(s, p, resin);
       if (!res.length) return res;
       else if (res[1] > p) return res;
-      else return fail(p, detailedFail && `expected at least one character`);
+      else return fail(p, detailedFail & 1 && `expected at least one character`);
     }
   }
 }
@@ -256,7 +256,7 @@ export function readToDyn(state: { stop: string }, end?: true): IParser<string> 
     parse(s: string, p: number, res?: Success<string>) {
       res = res || ['', 0];
       const skipped = seekUntilChar(s, p, state.stop, getSearch(state.stop, false));
-      if (!end && skipped >= s.length) return fail(skipped - 1, detailedFail && `expected one of '${state.stop}' before end of input`);
+      if (!end && skipped >= s.length) return fail(skipped - 1, detailedFail & 1 && `expected one of '${state.stop}' before end of input`);
       res[0] = skipped ? s.substring(p, skipped) : '';
       res[1] = skipped;
       return res;
@@ -270,7 +270,7 @@ export function read1ToDyn(state: { stop: string }, end?: true): IParser<string>
     parse(s: string, p: number, res?: Success<string>) {
       const r = op.parse(s, p, res);
       if (!r.length) return r;
-      else if (r[0].length < 1) return fail(p, detailedFail && `expected at least one characater`);
+      else if (r[0].length < 1) return fail(p, detailedFail & 1 && `expected at least one characater`);
       else return res;
     }
   }
@@ -285,7 +285,7 @@ export function peek(count: number): IParser<string> {
         res[0] = r;
         res[1] = p + count;
         return res;
-      } else return fail(p, detailedFail && `unexpected end of input`);
+      } else return fail(p, detailedFail & 1 && `unexpected end of input`);
     }
   }
 }

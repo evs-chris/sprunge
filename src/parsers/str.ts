@@ -20,7 +20,7 @@ export function str(...strings: string[]): IParser<string> {
             res[0] = str;
             res[1] = p + 1;
             return res;
-          } else return fail(p, detailedFail && `expected '${str}'`);
+          } else return fail(p, detailedFail & 1 && `expected '${str}'`);
         }
       }
     } else if (len === 2) {
@@ -31,7 +31,7 @@ export function str(...strings: string[]): IParser<string> {
             res[0] = str;
             res[1] = p + 2;
             return res;
-          } else return fail(p, detailedFail && `expected '${str}'`);
+          } else return fail(p, detailedFail & 1 && `expected '${str}'`);
         }
       }
     } else {
@@ -39,7 +39,7 @@ export function str(...strings: string[]): IParser<string> {
       return {
         parse(s: string, p: number, res?: Success<string>) {
           for (i = 0, j = p + i; i < len; i++, j++) {
-            if (str[i] !== s[j]) return fail(p, detailedFail && `expected '${str}'`);
+            if (str[i] !== s[j]) return fail(p, detailedFail & 1 && `expected '${str}'`);
           }
           res = res || ['', 0];
           res[0] = str;
@@ -66,7 +66,7 @@ export function str(...strings: string[]): IParser<string> {
           res[1] = p + nlen;
           return res;
         }
-        return fail(p, detailedFail && `expected ${strings.length > 1 ? 'one of ' : ''}${strings.map(s => `'${s}'`).join(', ')}`);
+        return fail(p, detailedFail & 1 && `expected ${strings.length > 1 ? 'one of ' : ''}${strings.map(s => `'${s}'`).join(', ')}`);
       }
     };
   }
@@ -88,7 +88,7 @@ export function istr(...strings: string[]): IParser<string> {
       const r = chars.parse(s, p, res || ['', 0]);
       if (!r.length) return r;
       const i = idx.indexOf(r[0].toLowerCase());
-      if (!~i) return fail(p, detailedFail && `expected ${copy.length > 1 ? 'one of ' : ''}${copy.map(s => `'${s}'`).join(', ')}`);
+      if (!~i) return fail(p, detailedFail & 1 && `expected ${copy.length > 1 ? 'one of ' : ''}${copy.map(s => `'${s}'`).join(', ')}`);
       r[0] = copy[i];
       return r;
     }

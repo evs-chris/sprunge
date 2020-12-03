@@ -1,3 +1,17 @@
+## 0.1.0
+
+2020-12-02
+
+### Bugs
+
+* JSON-ish numbers should not start with a separator (`_`).
+
+### Not bugs
+
+* Split detailed error tracking into messages (`detailed`) and causal (`causes`), because keeping a cause tree is expensive if you just want a hint as to why parsing failed at a specific point.
+* The latest cause is also tracked separately if detailed messages are enabled, so that it can be included without requiring the full cause tree.
+* The `str` parsers no longer single quotes the expected strings in their error messages.
+
 ## 0.0.4
 
 2020-11-28

@@ -122,12 +122,13 @@ Here's the list of built-ins for sprunging:
 | `readTo` | stop: `string`, end?: true | reads characters from the input until one in `stop` is reached, and if `end` is true, the end of the input is an acceptable end for a match | yes |
 | `read1To` | stop: `string`, end?: `true` | like `readTo`, but must match at least one character | yes |
 | `readToDyn` | state: `{ stop: string }`, end?: `true` | like `readTo`, but the target stop characters can change after the parser is created | yes |
-| `read1ToDyn` | state: `{ stop: string }`, end?: true | like `readToDyn`, but must match at least one character | yes |
+| `read1ToDyn` | state: `{ stop: string }`, end?: `true` | like `readToDyn`, but must match at least one character | yes |
 | `opt` | `Parser` | if the given parser succeeds, that result will be passed through, otherwise, `opt` will succeed with a `null` result | no |
 | `alt` | `...Parser[]` | applies the given parsers in order until one succeeds, and if none succeed, `alt` will fail | yes |
 | `verify` | `Parser`, verify function | if the given parser succeeds, its result is passed to the verify function, which can pass or fail the `verify` based on its result - `true` to pass or a `string` to fail | yes |
 | `map` | `Parser`, map function | if the given parser succeeds, its result is passed through the given map function for the `map` to return as a success | yes |
 | `str` | `...string` | matches one of the given strings exactly | yes |
+| `istr` | `...string` | matches one of the given strings case insensitively | yes |
 | `seq` | `...Parser[]` | matches the given parsers in order, producing a tuple of the matched results if all of the parsers succeed | yes |
 | `bracket` | left: `Parser`, content: `Parser`, right: `Parser` | skips the `left` content, matches the `content`, and skips the `right` content to produce the `content` result if all three succeed | yes |
 | `bracket` | ends: `Parser[]`, content: `Parser` | skips one of the given `ends`, matches the `content`, and skips the initially matched `ends` parser again to produce the `content` result if all three succeed | yes |
@@ -136,6 +137,8 @@ Here's the list of built-ins for sprunging:
 | `rep1` | `Parser` | like `rep`, but requires at least one match | yes |
 | `repsep` | content: `Parser`, separator: `Parser`, trail?: `'allow'|'disallow'|'require'` | matches the `content` followed by the `separator` as many times as possible - a trailing separator for the last result may be allowed, forbidden, or required as necessary - the default is to allow a trailing separator | no |
 | `rep1sep` | content: `Parser`, separator: `Parser`, trail?: `'allow'|'disallow'|'require'` | like `repsep`, but requires at least one match | yes |
+| `outer` | parser: `Parser` | Matches a substring in the input from the starting location to the point in the input to which the given parser successfully parses. | yes |
+| `debug` | parser: `Parser` | Sets a breakpoint before running the given parser using a `debugger` statement. | yes |
 
 There are also parsers for CSV, keypaths, and a relaxed form of JSON included as modules.
 

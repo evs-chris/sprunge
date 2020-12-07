@@ -1,3 +1,11 @@
+## 0.1.1
+
+2020-12-07
+
+### Not bugs
+
+* Add `andNot` parser where the first wrapped parser will succeed only of the second wrapped parser does not.
+
 ## 0.1.0
 
 2020-12-02

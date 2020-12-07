@@ -1,4 +1,4 @@
-import { skip, skip1, read, read1, chars, readTo, read1To, alt, rep, rep1, str, opt, repsep, rep1sep, chain, map, bracket, seq, check } from '../src/index';
+import { skip, skip1, read, read1, chars, readTo, read1To, alt, rep, rep1, str, opt, repsep, rep1sep, chain, map, bracket, seq, andNot, check } from '../src/index';
 
 const q = QUnit;
 
@@ -159,6 +159,12 @@ q.test('seq', t => {
   const p = seq(str('f'), str('o'), str('o'));
   t.equal(p.parse('foo', 0)[0].join(''), 'foo');
   t.equal(p.parse('fOo', 0).length, 0);
+});
+
+q.test('andNot', t => {
+  const p = andNot(str('{'), str('{'));
+  t.equal(p.parse('{}', 0)[0], '{');
+  t.equal(p.parse('{{', 0).length, 0);
 });
 
 q.test('check', t => {

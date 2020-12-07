@@ -130,6 +130,7 @@ Here's the list of built-ins for sprunging:
 | `str` | `...string` | matches one of the given strings exactly | yes |
 | `istr` | `...string` | matches one of the given strings case insensitively | yes |
 | `seq` | `...Parser[]` | matches the given parsers in order, producing a tuple of the matched results if all of the parsers succeed | yes |
+| `andNot` | `Parser, Parser` | matches the first parser only if the second parser fails to match | yes |
 | `bracket` | left: `Parser`, content: `Parser`, right: `Parser` | skips the `left` content, matches the `content`, and skips the `right` content to produce the `content` result if all three succeed | yes |
 | `bracket` | ends: `Parser[]`, content: `Parser` | skips one of the given `ends`, matches the `content`, and skips the initially matched `ends` parser again to produce the `content` result if all three succeed | yes |
 | `check` | `...Parser[]` | like `seq`, but discards the results of the given parsers, always producing a `null` success result if all of the given parsers succeed | yes |

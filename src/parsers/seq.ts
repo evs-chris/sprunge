@@ -275,3 +275,28 @@ export function check(...parsers: Array<Parser<any>>): IParser<null> {
   };
   return res;
 }
+
+export function andNot<T>(parser: Parser<T>, not: Parser<any>): IParser<T> {
+  let ps: IParser<T>;
+  let np: IParser<any>;
+  function parse(s: string, p: number, resin?: Success<T>): Result<T> {
+    resin = resin || [null, 0];
+    const res = ps.parse(s, p, resin);
+    if (!res.length) return res;
+    const c = res[1];
+    const not = np.parse(s, c, resin);
+    if (not.length) return fail(c, detailedFail & 1 && `unexpected ${s.slice(c, res[1])}`);
+    else return res;
+  }
+
+  let res: IParser<T>;
+  res = {
+    parse(s: string, p: number, resin?: Success<T>) {
+      ps = unwrap(parser);
+      np = unwrap(not);
+      res.parse = parse;
+      return parse(s, p, resin);
+    }
+  };
+  return res;
+}

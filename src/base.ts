@@ -101,6 +101,15 @@ export function isFailure<T>(result: Result<T>): result is Failure {
   return !result.length;
 }
 
+export interface ParseNode {
+  name?: string;
+  result?: any;
+  start: number;
+  end: number;
+  children?: ParseNode[];
+  parent?: ParseNode;
+}
+
 /**
  * The base parser interface that is consumed/produced by creators/combinators.
  */
@@ -110,8 +119,10 @@ export interface IParser<T> {
    *
    * @param input - the string to parse
    * @param position - the current position of parsing in the string
+   * @param result - a success result to return
+   * @param tree - if building a parse tree, the parent node
    */
-  parse(input: string, position: number, result?: Success<T>): Result<T>;
+  parse(input: string, position: number, result: Success<T>, tree?: ParseNode): Result<T>;
 }
 
 /**
@@ -317,6 +328,26 @@ export const uninit: any = { parse: (_s: String, p: number) => fail(p, detailedF
  */
 export function unwrap<T>(parser: Parser<T>): IParser<T> {
   return (((parser as any).parser || parser) as IParser<T>) || uninit;
+}
+
+/**
+ * Set up a lazily initializing parser. On the first parse, the init function
+ * can unwrap any nested parsers. The parse function is then replaced with 
+ * the passed-in function.
+ *
+ * @param init - initialization function for first parse
+ * @param parse - replacement parse function
+ */
+export function lazy<T>(init: () => void, parse: (s: string, p: number, r: Success<T>, tree?: ParseNode) => Result<T>): IParser<T> {
+  let res: IParser<T>;
+  res = {
+    parse(s: string, p: number, r: Success<T>, tree?: ParseNode): Result<T> {
+      init();
+      res.parse = parse;
+      return parse(s, p, r, tree);
+    }
+  }
+  return res;
 }
 
 export function concat(strings: string[]): string {

@@ -1,4 +1,4 @@
-import { IParser, Parser, Success, Result, Cause, getCauseCopy, getLatestCause, fail, detailedFail, unwrap } from '../base';
+import { IParser, Parser, Success, Result, Cause, getCauseCopy, getLatestCause, fail, detailedFail, unwrap, lazy } from '../base';
 
 /**
  * Creates a parser using the given parser that always succeeds, returning
@@ -8,25 +8,18 @@ import { IParser, Parser, Success, Result, Cause, getCauseCopy, getLatestCause, 
  */
 export function opt<T>(parser: Parser<T>): IParser<null|T> {
   let ps: IParser<T>;
-  function parse(s: string, p: number, resin?: Success<T>): Result<null|T> {
-    resin = resin || [null, 0];
-    const res = ps.parse(s, p, resin);
-    if (res.length) return res;
-    else {
-      resin[0] = null;
-      resin[1] = p;
-      return resin;
+  return lazy(
+    () => ps = unwrap(parser),
+    function parse(s: string, p: number, resin: Success<T>): Result<null|T> {
+      const res = ps.parse(s, p, resin);
+      if (res.length) return res;
+      else {
+        resin[0] = null;
+        resin[1] = p;
+        return resin;
+      }
     }
-  }
-  let res: IParser<null|T>;
-  res = {
-    parse(s: string, p: number, resin?: Success<null|T>) {
-      ps = unwrap(parser);
-      res.parse = parse;
-      return parse(s, p, resin);
-    }
-  };
-  return res;
+  );
 }
 
 /**
@@ -50,28 +43,21 @@ export function alt<T>(name?: string|Parser<T>, ...parsers: Array<Parser<T>>): I
   const lps: Array<Parser<T>> = typeof name === 'string' ? parsers : (name ? [name] : []).concat(parsers);
   let ps: Array<IParser<T>>;
   const len = lps.length;
-  function parse(s: string, p: number, resin?: Success<T>) {
-    resin = resin || [null, 0];
-    let fails: Cause[];
-    for (let i = 0; i < len; i++) {
-      const res = ps[i].parse(s, p, resin);
-      if (res.length) return res;
-      else if (detailedFail & 2) (fails || (fails = [])).push(getCauseCopy());
+  return lazy(
+    () => ps = lps.map(unwrap),
+    function parse(s: string, p: number, resin: Success<T>) {
+      let fails: Cause[];
+      for (let i = 0; i < len; i++) {
+        const res = ps[i].parse(s, p, resin);
+        if (res.length) return res;
+        else if (detailedFail & 2) (fails || (fails = [])).push(getCauseCopy());
+      }
+      if (detailedFail & 2) {
+        const cause = getLatestCause(fails, [p, `expected ${nm}`]);
+        return fail(cause[0], cause[1], cause[2], cause[3]);
+      } else return fail(p, detailedFail & 1 && `expected ${nm}`);
     }
-    if (detailedFail & 2) {
-      const cause = getLatestCause(fails, [p, `expected ${nm}`]);
-      return fail(cause[0], cause[1], cause[2], cause[3]);
-    } else return fail(p, detailedFail & 1 && `expected ${nm}`);
-  }
-  let res: IParser<T>;
-  res = {
-    parse(s: string, p: number, resin?: Success<T>) {
-      ps = lps.map(p => unwrap(p));
-      res.parse = parse;
-      return parse(s, p, resin);
-    }
-  };
-  return res;
+  );
 }
 
 /**
@@ -84,25 +70,18 @@ export function alt<T>(name?: string|Parser<T>, ...parsers: Array<Parser<T>>): I
  */
 export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>): IParser<U> {
   let ps: IParser<T>;
-  function parse(s: string, p: number, res?: Success<U>): Result<U> {
-    res = res || [null, 0];
-    let c = p;
-    const r = ps.parse(s, c, res as any);
-    if (!r.length) return r as any;
-    c = r[1];
-    const n = select(r[0]);
-    if (!n) return fail(c, detailedFail & 1 && `chain selection failed`);
-    return n.parse(s, c, res as any);
-  }
-  let res: IParser<U>;
-  res = {
-    parse(s: string, p: number, resin?: Success<U>) {
-      ps = unwrap(parser);
-      res.parse = parse;
-      return parse(s, p, resin);
+  return lazy(
+    () => ps = unwrap(parser),
+    function parse(s: string, p: number, res: Success<U>): Result<U> {
+      let c = p;
+      const r = ps.parse(s, c, res as any);
+      if (!r.length) return r as any;
+      c = r[1];
+      const n = select(r[0]);
+      if (!n) return fail(c, detailedFail & 1 && `chain selection failed`);
+      return n.parse(s, c, res as any);
     }
-  };
-  return res;
+  );
 }
 
 /**
@@ -116,23 +95,16 @@ export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>): IP
  */
 export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string): Parser<T> {
   let ps: IParser<T>;
-  function parse(s: string, p: number, res?: Success<T>) {
-    res = res || [null, 0];
-    const r = ps.parse(s, p, res);
-    if (!r.length) return r;
-    const v = verify(r[0]);
-    if (v === true) return r;
-    else return fail(r[1], v);
-  }
-  let res: IParser<T>;
-  res = {
-    parse(s: string, p: number, resin?: Success<T>) {
-      ps = unwrap(parser);
-      res.parse = parse;
-      return parse(s, p, resin);
+  return lazy(
+    () => ps = unwrap(parser),
+    function parse(s: string, p: number, res: Success<T>) {
+      const r = ps.parse(s, p, res);
+      if (!r.length) return r;
+      const v = verify(r[0]);
+      if (v === true) return r;
+      else return fail(r[1], v);
     }
-  };
-  return res;
+  );
 }
 
 /**
@@ -142,25 +114,26 @@ export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string): Par
  * @param parser - the parser to apply
  * @param fn - the transformer to apply to the result
  */
-export function map<T, U>(parser: Parser<T>, fn: (t: T) => U): IParser<U> {
+export function map<T, U>(parser: Parser<T>, fn: (t: T, f: (error: string) => void) => U): IParser<U> {
   let ps: IParser<T>;
-  function parse(s: string, p: number, res?: Success<U>): Result<U> {
-    res = res || [null, 0];
-    const r = ps.parse(s, p, res as any);
-    if (r.length) {
-      (r as unknown[])[0] = fn(r[0]);
-      return r as any;
-    } else return r as any;
-  }
-  let res: IParser<U>;
-  res = {
-    parse(s: string, p: number, resin?: Success<U>) {
-      ps = unwrap(parser);
-      res.parse = parse;
-      return parse(s, p, resin);
+  let err: string;
+  const none = '';
+  const error = (e: string) => err = e;
+  return lazy(
+    () => ps = unwrap(parser),
+    function parse(s: string, p: number, res: Success<U>): Result<U> {
+      const r = ps.parse(s, p, res as any);
+      if (r.length) {
+        const last = err;
+        err = none;
+        (r as unknown[])[0] = fn(r[0], error);
+        const cur = err;
+        err = last;
+        if (cur) return fail(p, cur);
+        return r as any;
+      } else return r as any;
     }
-  };
-  return res;
+  );
 }
 
 /**
@@ -169,12 +142,14 @@ export function map<T, U>(parser: Parser<T>, fn: (t: T) => U): IParser<U> {
  * @param parser - the nested parser
  * @param name = an optional name for context
  */
-export function debug<T>(parser: IParser<T>, name?: string): IParser<T> {
-  return {
-    parse(s: string, p: number, res?: Success<T>): Result<T> {
+export function debug<T>(parser: Parser<T>, name?: string): IParser<T> {
+  let ps: IParser<T>;
+  return lazy(
+    () => ps = unwrap(parser),
+    function parse(s: string, p: number, res: Success<T>): Result<T> {
       name;
       debugger;
-      return parser.parse(s, p, res);
+      return ps.parse(s, p, res);
     }
-  };
+  );
 }

@@ -1,4 +1,4 @@
-import { IParser, Success, fail, detailedFail } from '../base';
+import { Parser, IParser, Success, fail, detailedFail, unwrap, lazy } from '../base';
 import { read1 } from './char';
 
 /**
@@ -14,9 +14,8 @@ export function str(...strings: string[]): IParser<string> {
 
     if (len === 1) {
       return {
-        parse(s: string, p: number, res?: Success<string>) {
+        parse(s: string, p: number, res: Success<string>) {
           if (s[p] === str) {
-            res = res || ['', 0];
             res[0] = str;
             res[1] = p + 1;
             return res;
@@ -25,9 +24,8 @@ export function str(...strings: string[]): IParser<string> {
       }
     } else if (len === 2) {
       return {
-        parse(s: string, p: number, res?: Success<string>) {
+        parse(s: string, p: number, res: Success<string>) {
           if (s[p] === str[0] && s[p + 1] === str[1]) {
-            res = res || ['', 0];
             res[0] = str;
             res[1] = p + 2;
             return res;
@@ -37,11 +35,10 @@ export function str(...strings: string[]): IParser<string> {
     } else {
       let i: number, j: number;
       return {
-        parse(s: string, p: number, res?: Success<string>) {
+        parse(s: string, p: number, res: Success<string>) {
           for (i = 0, j = p + i; i < len; i++, j++) {
             if (str[i] !== s[j]) return fail(p, detailedFail & 1 && `expected ${str}`);
           }
-          res = res || ['', 0];
           res[0] = str;
           res[1] = p + len;
           return res;
@@ -50,7 +47,7 @@ export function str(...strings: string[]): IParser<string> {
     }
   } else {
     return {
-      parse(s: string, p: number, res?: Success<string>) {
+      parse(s: string, p: number, res: Success<string>) {
         outer: for (let i = 0; i < len; i++) {
           const n = strings[i];
           const nlen = n.length;
@@ -61,7 +58,6 @@ export function str(...strings: string[]): IParser<string> {
           for (let j = 0; j < nlen; j++) {
             if (n[j] !== s[p + j]) continue outer;
           }
-          res = res || ['', 0];
           res[0] = n;
           res[1] = p + nlen;
           return res;
@@ -84,8 +80,8 @@ export function istr(...strings: string[]): IParser<string> {
   const chars = read1(copy.map(s => s.toLowerCase() + s.toUpperCase()).join(''));
   const idx = copy.map(s => s.toLowerCase());
   return {
-    parse(s: string, p: number, res?: Success<string>) {
-      const r = chars.parse(s, p, res || ['', 0]);
+    parse(s: string, p: number, res: Success<string>) {
+      const r = chars.parse(s, p, res);
       if (!r.length) return r;
       const i = idx.indexOf(r[0].toLowerCase());
       if (!~i) return fail(p, detailedFail & 1 && `expected ${copy.length > 1 ? 'one of ' : ''}${copy.map(s => `${s}`).join(', ')}`);
@@ -100,13 +96,15 @@ export function istr(...strings: string[]): IParser<string> {
  *
  * @param parser - the parser used to determine the appropriate substring
  */
-export function outer(parser: IParser<any>): IParser<string> {
-  return {
-    parse(s: string, p: number, res?: Success<string>) {
-      res = parser.parse(s, p, res || ['', 0]) as any;
+export function outer(parser: Parser<any>): IParser<string> {
+  let ps: IParser<any>;
+  return lazy(
+    () => ps = unwrap(parser),
+    function parse(s: string, p: number, res: Success<string>) {
+      res = ps.parse(s, p, res) as any;
       if (!res.length) return res;
       res[0] = s.substring(p, res[1]);
       return res;
     }
-  };
+  );
 }

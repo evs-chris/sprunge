@@ -1,4 +1,4 @@
-import { Parser, IParser, Success, Result, fail, detailedFail, getCause, getCauseCopy, unwrap, lazy } from '../base';
+import { Parser, IParser, Success, Result, fail, detailedFail, getCause, getCauseCopy, unwrap, lazy, ParseNode, openNode, closeNode } from '../base';
 
 /**
  * Creates a parser that applies the given parser until it fails, producing
@@ -8,18 +8,19 @@ import { Parser, IParser, Success, Result, fail, detailedFail, getCause, getCaus
  *
  * This will successfully parse an empty array.
  */
-export function rep<T>(parser: Parser<T>): IParser<T[]> {
+export function rep<T>(parser: Parser<T>, name?: string): IParser<T[]> {
   let ps: IParser<T>;
   const empty: T[] = [];
   return lazy(
     () => ps = unwrap(parser),
-    function parse(s: string, p: number, resin: Success<T[]>): Result<T[]> {
+    function parse(s: string, p: number, resin: Success<T[]>, tree?: ParseNode): Result<T[]> {
+      const node = tree && openNode(p, name);
       let seq: T[];
       let c = p;
       let res: Result<T>;
 
       // unroll the first pass to avoid weird allocation
-      res = ps.parse(s, c, resin as any);
+      res = ps.parse(s, c, resin as any, node);
       if (!res.length) {
         resin[0] = empty;
         resin[1] = c;
@@ -31,12 +32,16 @@ export function rep<T>(parser: Parser<T>): IParser<T[]> {
       }
 
       while (1) {
-        res = ps.parse(s, c, resin as any);
+        res = ps.parse(s, c, resin as any, node);
         if (res.length) {
           seq.push(res[0]);
           c = res[1];
         } else {
-          return [seq || [], c, detailedFail & 2 && getCauseCopy()];
+          resin[0] = seq || [];
+          resin[1] = c;
+          detailedFail & 2 && (resin[2] = getCauseCopy());
+          if (node) closeNode(node, tree, resin);
+          return resin;
         }
       }
     }
@@ -55,19 +60,20 @@ export function rep1<T>(parser: Parser<T>, name?: string): IParser<T[]> {
   let ps: IParser<T>;
   return lazy(
     () => ps = unwrap(parser),
-    function parse(s: string, p: number, resin: Success<T[]>): Result<T[]> {
+    function parse(s: string, p: number, resin: Success<T[]>, tree?: ParseNode): Result<T[]> {
+      const node = tree && openNode(p, name);
       let seq: T[];
       let c = p;
       let res: Result<T>;
 
       // unroll to avoid weird allocation
-      res = ps.parse(s, c, resin as any);
+      res = ps.parse(s, c, resin as any, node);
       if (res.length) {
         (seq = []).push(res[0]);
         c = res[1];
 
         while (1) {
-          res = ps.parse(s, c, resin as any);
+          res = ps.parse(s, c, resin as any, node);
           if (res.length) {
             seq.push(res[0]);
             c = res[1];
@@ -75,6 +81,7 @@ export function rep1<T>(parser: Parser<T>, name?: string): IParser<T[]> {
             resin[0] = seq;
             resin[1] = c;
             if (detailedFail & 2) resin[2] = getCauseCopy();
+            if (node) closeNode(node, tree, resin);
             return resin;
           }
         }
@@ -92,16 +99,18 @@ export function rep1<T>(parser: Parser<T>, name?: string): IParser<T[]> {
  *
  * @param parser - the primary parser to apply
  * @param sep - the separator parser to apply
+ * @param trail - controls whether a trailing separator is 'allow'ed, 'disallow'ed, or 'require'd.
  *
  * This will successfully parse an empty array.
  */
-export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'disallow'|'require' = 'disallow'): IParser<T[]> {
+export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'disallow'|'require' = 'disallow', name?: string): IParser<T[]> {
   let ps1: IParser<T>;
   let ps2: IParser<any>;
   const empty: T[] = [];
   return lazy(
     () => (ps1 = unwrap(parser), ps2 = unwrap(sep)),
-    function parse(s: string, p: number, resin: Success<T[]>): Result<T[]> {
+    function parse(s: string, p: number, resin: Success<T[]>, tree?: ParseNode): Result<T[]> {
+      const node = tree && openNode(p, name);
       let seq: T[];
       let c = p;
       let m = p;
@@ -110,7 +119,7 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
       let r: Result<any>;
 
       // unroll first iteration to avoid weird allocation
-      res = ps1.parse(s, c, resin as any);
+      res = ps1.parse(s, c, resin as any, node);
       if (res.length) {
         rr = res[0];
         m = c;
@@ -120,6 +129,7 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
           if (trail === 'require') return fail(m, detailedFail & 1 && `expected separator`);
           resin[0] = [rr];
           resin[1] = c;
+          if (node) closeNode(node, tree, resin);
           return resin;
         } else {
           c = r[1];
@@ -134,7 +144,7 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
       }
 
       while (1) {
-        res = ps1.parse(s, c, resin as any);
+        res = ps1.parse(s, c, resin as any, node);
         if (res.length) {
           m = c;
           c = res[1];
@@ -154,7 +164,11 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
           else return fail(c, detailedFail & 1 && `unexpected separator`);
         } else break;
       }
-      return [seq, c, detailedFail & 2 && getCauseCopy()];
+      resin[0] = seq;
+      resin[1] = c;
+      detailedFail & 2 && (resin[2] = getCauseCopy());
+      if (node) closeNode(node, tree, resin);
+      return resin;
     }
   );
 }
@@ -166,22 +180,24 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
  *
  * @param parser - the primary parser to apply
  * @param sep - the separator parser to apply
+ * @param trail - controls whether a trailing separator is 'allow'ed, 'disallow'ed, or 'require'd.
  *
  * This will _not_ successfully parse an empty array.
  */
-export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, name?: string, trail: 'allow'|'disallow'|'require' = 'disallow'): IParser<T[]> {
+export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'disallow'|'require' = 'disallow', name?: string): IParser<T[]> {
   let ps1: IParser<T>;
   let ps2: IParser<any>;
   return lazy(
     () => (ps1 = unwrap(parser), ps2 = unwrap(sep)),
-    function parse(s: string, p: number, resin: Success<T[]>): Result<T[]> {
+    function parse(s: string, p: number, resin: Success<T[]>, tree?: ParseNode): Result<T[]> {
+      const node = tree && openNode(p, name);
       let seq: T[];
       let c = p;
       let l = c;
       let res: Result<T>;
 
       // unroll to avoid weird allocation
-      res = ps1.parse(s, c, resin as any);
+      res = ps1.parse(s, c, resin as any, node);
       if (res.length) {
         (seq = []).push(res[0]);
         l = c = res[1];
@@ -193,7 +209,7 @@ export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, name?: string, t
 
           // loop for the rest
           while (1) {
-            res = ps1.parse(s, c, resin as any);
+            res = ps1.parse(s, c, resin as any, node);
             if (res.length) {
               seq.push(res[0]);
               l = c = res[1];
@@ -205,6 +221,7 @@ export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, name?: string, t
             } else if (trail === 'disallow' && seq && seq.length) {
               resin[0] = seq;
               resin[1] = l;
+              if (node) closeNode(node, tree, resin);
               return resin;
             } else break;
           }
@@ -214,6 +231,7 @@ export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, name?: string, t
       resin[0] = seq;
       resin[1] = c;
       if (detailedFail & 2) resin[2] = getCauseCopy();
+      if (node) closeNode(node, tree, resin);
       return resin;
     }
   );

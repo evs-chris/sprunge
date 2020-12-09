@@ -101,13 +101,71 @@ export function isFailure<T>(result: Result<T>): result is Failure {
   return !result.length;
 }
 
+/**
+ * A wrapped parse result that includes each level of parse result returned by
+ * a parse tree.
+ */
 export interface ParseNode {
+  /** The optional name of the parser that produced this result. */
   name?: string;
+  /** The optional result of the parser. */
   result?: any;
+  /** The starting position in the source string for this result. */
   start: number;
+  /** The ending position in the source string for this result. */
   end: number;
-  children?: ParseNode[];
-  parent?: ParseNode;
+  /** Any child parser matches that contributed to this result. */
+  children: ParseNode[];
+}
+
+/**
+ * Create a new ParseNode for a parser.
+ *
+ * @param start - the starting point for the parse
+ * @param name - an optional name for the parser
+ */
+export function openNode(start: number, name?: string): ParseNode {
+  return { start, end: start, children: [], name };
+}
+
+/**
+ * Closes an open parse node. This will set the final result and end values for
+ * the node, and add it to its parent.
+ *
+ * @param node - the node to close
+ * @param parent - the parent node to which the node should be added
+ * @param result - the result with which to close the node
+ */
+export function closeNode(node: ParseNode, parent: ParseNode, res: Success<any>) {
+  node.end = res[1];
+  node.result = res[0];
+  parent && parent.children.push(node);
+}
+
+/**
+ * Find the closest containing parse node path for a position within the source that
+ * generated the parse node.
+ *
+ * @param node - the source node from which to start the search
+ * @param pos - the position to find
+ */
+export function nodeForPosition(node: ParseNode, pos: number, onlyNamed?: true): ParseNode[] {
+  const res: ParseNode[] = [];
+  let n = node;
+  let c: ParseNode;
+
+  while (n) {
+    if (n.start <= pos && n.end >= pos && (!onlyNamed || n.name)) res.unshift(n);
+    c = null;
+    for (let i = 0; i < n.children.length; i++) {
+      c = n.children[i];
+      if (c.start > pos || c.end < pos) c = null;
+      else break;
+    }
+    n = c;
+  }
+
+  return res;
 }
 
 /**
@@ -168,15 +226,22 @@ export interface ParseError {
 
 /**
  * A wrapped parser that is produced by the parse function. This will return
- * either a successfully parsed result or an error. Depending on the error
- * options, it may also throw or produce detailed errors (much more slowly).
+ * either a successfully parsed result or an error. Depending on the parse
+ * options, it may also produce a parse node, throw, or produce detailed errors
+ * (much more slowly).
  */
-export type ParseFn<T> = (input: string, error?: ErrorOptions) => T|ParseError;
+export interface ParseFn<T> {
+  (input: string): T|ParseError;
+  (input: string, error: ParseErrorOptions): T|ParseError;
+  (input: string, tree: ParseTreeOptions): ParseNode|ParseError;
+}
+
+export type ParseOptions = ParseErrorOptions | ParseTreeOptions;
 
 /**
  * Options for controlling how errors are produced by a ParseFn.
  */
-export interface ErrorOptions {
+export interface ParseErrorOptions {
   /* The number of lines surrounding an error line that should be included in errors. This defaults to 0, and setting it to a number greater than 0 will produce up to 2x + 1 the number of lines, as it applies to lines both above and below the source line. */
   contextLines?: number;
   /* Turns on detailed errors for this parser or parse run. */
@@ -187,6 +252,13 @@ export interface ErrorOptions {
   throw?: boolean;
   /* Produces an error if all of the input is not consumed during parsing. */
   consumeAll?: boolean;
+}
+
+/**
+ * Options for producing a parse node from a ParseFn.
+ */
+export interface ParseTreeOptions extends ParseErrorOptions {
+  tree?: boolean;
 }
 
 /**
@@ -278,24 +350,25 @@ export function findLatestCause(cause: Cause): Cause {
  * @param parser - the base parser to wrap
  * @param error - default ErrorOptions for the returned ParseFn
  */
-export function parser<T>(parser: Parser<T>, error?: ErrorOptions): ParseFn<T> {
+export function parser<T>(parser: Parser<T>, error?: ParseOptions): ParseFn<T> {
   let mps: IParser<T>;
   const oerror = error;
   const det = (error ? (error.detailed ? 1 : 0) + (error.causes ? 2 : 0) : 0) as DetailedFail;
   const consume = error && error.consumeAll;
-  return function parse(input: string, error?: ErrorOptions) {
+  return function parse(input: string, error?: ParseOptions) {
     const d = (error ? (error.detailed ? 1 : 0) + (error.causes ? 2 : 0) : det) as DetailedFail;
     let res: Result<T> = [null, 0];
 
     if (d & 1) resetLatestCause();
 
+    const node = (error && 'tree' in error && error.tree) && openNode(0);
     if (d !== detailedFail) {
       const c = detailedFail;
       detailedFail = d;
-      res = (mps || (mps = unwrap(parser))).parse(input, 0, res);
+      res = (mps || (mps = unwrap(parser))).parse(input, 0, res, node);
       detailedFail = c;
     } else {
-      res = (mps || (mps = unwrap(parser))).parse(input, 0, res);
+      res = (mps || (mps = unwrap(parser))).parse(input, 0, res, node);
     }
 
     if (res.length && (error && 'consumeAll' in error ? error.consumeAll : consume) && res[1] < input.length) {
@@ -312,8 +385,14 @@ export function parser<T>(parser: Parser<T>, error?: ErrorOptions): ParseFn<T> {
         const ex = new Error(err.message);
         throw Object.assign(ex, err);
       } else return err;
-    } else return res[0];
-  }
+    } else {
+      if (node) {
+        closeNode(node, null, res);
+        return node;
+      }
+      return res[0];
+    }
+  } as ParseFn<T>;
 }
 
 /**

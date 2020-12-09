@@ -1,4 +1,4 @@
-import { parser, ErrorOptions, ParseError, concat, IParser, bracket, readTo, rep1sep, alt, map, repsep, rep, seq, skip, str, verify } from './index';
+import { parser, ParseOptions, ParseNode, ParseError, concat, IParser, bracket, readTo, rep1sep, alt, map, repsep, rep, seq, skip, str, verify } from './index';
 
 export interface CSVOptions {
   record?: string;
@@ -27,8 +27,8 @@ export function csv(options?: CSVOptions) {
 
   const _parse = parser(csv, { consumeAll: true });
 
-  return function parse(input: string, options?: ErrorOptions) {
-    const res: string[][]|ParseError = _parse(input, options);
+  return function parse(input: string, options?: ParseOptions) {
+    const res: ParseNode|string[][]|ParseError = _parse(input, options);
     if (Array.isArray(res)) {
       if (opts.header) {
         const header: string[] = res.shift();

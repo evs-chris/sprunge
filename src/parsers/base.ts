@@ -1,4 +1,4 @@
-import { IParser, Parser, Success, Result, Cause, getCauseCopy, getLatestCause, fail, detailedFail, unwrap, lazy } from '../base';
+import { IParser, Parser, Success, Result, Cause, getCauseCopy, getLatestCause, fail, detailedFail, unwrap, lazy, ParseNode, openNode, closeNode } from '../base';
 
 /**
  * Creates a parser using the given parser that always succeeds, returning
@@ -6,14 +6,17 @@ import { IParser, Parser, Success, Result, Cause, getCauseCopy, getLatestCause, 
  *
  * @param parser - the parser to apply to the input
  */
-export function opt<T>(parser: Parser<T>): IParser<null|T> {
+export function opt<T>(parser: Parser<T>, name?: string): IParser<null|T> {
   let ps: IParser<T>;
   return lazy(
     () => ps = unwrap(parser),
-    function parse(s: string, p: number, resin: Success<T>): Result<null|T> {
-      const res = ps.parse(s, p, resin);
-      if (res.length) return res;
-      else {
+    function parse(s: string, p: number, resin: Success<T>, tree?: ParseNode): Result<null|T> {
+      const node = tree && openNode(p, name);
+      const res = ps.parse(s, p, resin, node);
+      if (res.length) {
+        if (node) closeNode(node, tree, res);
+        return res;
+      } else {
         resin[0] = null;
         resin[1] = p;
         return resin;
@@ -39,23 +42,26 @@ export function alt<T>(name: string, ...parsers: Array<Parser<T>>): IParser<T>;
  * The underlying implementation for `alt(name, ...)` and `alt(...)`.
  */
 export function alt<T>(name?: string|Parser<T>, ...parsers: Array<Parser<T>>): IParser<T> {
-  const nm = typeof name === 'string' ? name : 'alternate';
+  const nm = typeof name === 'string' ? name : undefined;
   const lps: Array<Parser<T>> = typeof name === 'string' ? parsers : (name ? [name] : []).concat(parsers);
   let ps: Array<IParser<T>>;
   const len = lps.length;
   return lazy(
     () => ps = lps.map(unwrap),
-    function parse(s: string, p: number, resin: Success<T>) {
+    function parse(s: string, p: number, resin: Success<T>, tree?: ParseNode) {
       let fails: Cause[];
+      const node = tree && openNode(p, nm);
       for (let i = 0; i < len; i++) {
-        const res = ps[i].parse(s, p, resin);
-        if (res.length) return res;
-        else if (detailedFail & 2) (fails || (fails = [])).push(getCauseCopy());
+        const res = ps[i].parse(s, p, resin, node);
+        if (res.length) {
+          if (node) closeNode(node, tree, res);
+          return res;
+        } else if (detailedFail & 2) (fails || (fails = [])).push(getCauseCopy());
       }
       if (detailedFail & 2) {
-        const cause = getLatestCause(fails, [p, `expected ${nm}`]);
+        const cause = getLatestCause(fails, [p, `expected ${nm || 'alternate'}`]);
         return fail(cause[0], cause[1], cause[2], cause[3]);
-      } else return fail(p, detailedFail & 1 && `expected ${nm}`);
+      } else return fail(p, detailedFail & 1 && `expected ${nm || 'alternate'}`);
     }
   );
 }
@@ -68,18 +74,21 @@ export function alt<T>(name?: string|Parser<T>, ...parsers: Array<Parser<T>>): I
  * @param parser - the initial parser to apply
  * @param match - the matcher function applied to the result of the first
  */
-export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>): IParser<U> {
+export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>, name?: string): IParser<U> {
   let ps: IParser<T>;
   return lazy(
     () => ps = unwrap(parser),
-    function parse(s: string, p: number, res: Success<U>): Result<U> {
+    function parse(s: string, p: number, res: Success<U>, tree?: ParseNode): Result<U> {
       let c = p;
-      const r = ps.parse(s, c, res as any);
+      const node = tree && openNode(p, name);
+      const r = ps.parse(s, c, res as any, node);
       if (!r.length) return r as any;
       c = r[1];
       const n = select(r[0]);
       if (!n) return fail(c, detailedFail & 1 && `chain selection failed`);
-      return n.parse(s, c, res as any);
+      const rr = n.parse(s, c, res as any, node);
+      if (rr.length && node) closeNode(node, tree, rr);
+      return rr;
     }
   );
 }
@@ -93,15 +102,19 @@ export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>): IP
  * @param parser - the nested parser to apply
  * @param verify - the verification function to apply
  */
-export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string): Parser<T> {
+export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string, name?: string): Parser<T> {
   let ps: IParser<T>;
   return lazy(
     () => ps = unwrap(parser),
-    function parse(s: string, p: number, res: Success<T>) {
+    function parse(s: string, p: number, res: Success<T>, tree?: ParseNode) {
+      const node = tree && openNode(p, name);
       const r = ps.parse(s, p, res);
       if (!r.length) return r;
       const v = verify(r[0]);
-      if (v === true) return r;
+      if (v === true) {
+        if (node) closeNode(node, tree, r);
+        return r;
+      }
       else return fail(r[1], v);
     }
   );
@@ -114,15 +127,16 @@ export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string): Par
  * @param parser - the parser to apply
  * @param fn - the transformer to apply to the result
  */
-export function map<T, U>(parser: Parser<T>, fn: (t: T, f: (error: string) => void) => U): IParser<U> {
+export function map<T, U>(parser: Parser<T>, fn: (t: T, f: (error: string) => void) => U, name?: string): IParser<U> {
   let ps: IParser<T>;
   let err: string;
   const none = '';
   const error = (e: string) => err = e;
   return lazy(
     () => ps = unwrap(parser),
-    function parse(s: string, p: number, res: Success<U>): Result<U> {
-      const r = ps.parse(s, p, res as any);
+    function parse(s: string, p: number, res: Success<U>, tree?: ParseNode): Result<U> {
+      const node = tree && openNode(p, name);
+      const r = ps.parse(s, p, res as any, node);
       if (r.length) {
         const last = err;
         err = none;
@@ -130,6 +144,7 @@ export function map<T, U>(parser: Parser<T>, fn: (t: T, f: (error: string) => vo
         const cur = err;
         err = last;
         if (cur) return fail(p, cur);
+        if (node) closeNode(node, tree, r);
         return r as any;
       } else return r as any;
     }
@@ -146,10 +161,10 @@ export function debug<T>(parser: Parser<T>, name?: string): IParser<T> {
   let ps: IParser<T>;
   return lazy(
     () => ps = unwrap(parser),
-    function parse(s: string, p: number, res: Success<T>): Result<T> {
+    function parse(s: string, p: number, res: Success<T>, tree?: ParseNode): Result<T> {
       name;
       debugger;
-      return ps.parse(s, p, res);
+      return ps.parse(s, p, res, tree);
     }
   );
 }

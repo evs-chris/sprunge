@@ -1,4 +1,7 @@
-import { parser, read, read1 } from '../src/index';
+import { parser, read, read1, str, readTo, nodeForPosition } from '../src/index';
+import { alt, map } from '../src/parsers/base';
+import { rep, repsep } from '../src/parsers/rep';
+import { bracket, seq } from '../src/parsers/seq';
 
 import './parsers';
 
@@ -33,4 +36,22 @@ q.test('wrapper throw', t => {
   res = p('abcd', { consumeAll: false });
   t.ok(typeof res === 'string', 'consume all turned off');
   t.equal(res, 'abc');
+});
+
+q.test('parse tree', t => {
+  const n = map(read1('0123456789'), n => +n, 'number');
+  const s = bracket(str('"'), readTo('"'), str('"'), 'string');
+  const c = map(seq(read1('abcforz'), str('('), repsep(alt<string|number>(n, s), read1(', ')), str(')')), ([op, , args]) => ({ op, args }), 'call');
+  const e = repsep(alt<any>(c, s, n), read1(' '), 'allow', 'expression');
+  const p = parser(e);
+  const r = p('"foo" 22 bar(69, 72)', { tree: true });
+  t.ok('start' in r);
+  if ('start' in r) {
+    const path = nodeForPosition(r, 14, true)
+    t.equal(path.length, 3);
+    t.equal(path[0].start, 13);
+    t.equal(path[0].result, 69);
+    const names = ['number', 'call', 'expression'];
+    for (let i = 0; i < path.length; i++) t.equal(path[i].name, names[i]);
+  }
 });

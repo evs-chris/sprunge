@@ -1,4 +1,4 @@
-import { Parser, IParser, Success, fail, detailedFail, unwrap, lazy } from '../base';
+import { Parser, IParser, Success, fail, detailedFail, unwrap, lazy, ParseNode, openNode, closeNode } from '../base';
 import { read1 } from './char';
 
 /**
@@ -96,14 +96,16 @@ export function istr(...strings: string[]): IParser<string> {
  *
  * @param parser - the parser used to determine the appropriate substring
  */
-export function outer(parser: Parser<any>): IParser<string> {
+export function outer(parser: Parser<any>, name?: string): IParser<string> {
   let ps: IParser<any>;
   return lazy(
     () => ps = unwrap(parser),
-    function parse(s: string, p: number, res: Success<string>) {
-      res = ps.parse(s, p, res) as any;
+    function parse(s: string, p: number, res: Success<string>, tree?: ParseNode) {
+      const node = tree && openNode(p, name);
+      res = ps.parse(s, p, res, node) as any;
       if (!res.length) return res;
       res[0] = s.substring(p, res[1]);
+      if (node) closeNode(node, tree, res);
       return res;
     }
   );

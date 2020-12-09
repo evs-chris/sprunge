@@ -1,4 +1,4 @@
-import { IParser, Parser, Success, Result, Cause, addCause, getCauseCopy, getLatestCause, unwrap, fail, detailedFail, lazy } from '../base';
+import { IParser, Parser, Success, Result, Cause, addCause, getCauseCopy, getLatestCause, unwrap, fail, detailedFail, lazy, ParseNode, openNode, closeNode } from '../base';
 
 /**
  * Creates a parser that parses bracketed content, ignoring the brackets in
@@ -8,7 +8,7 @@ import { IParser, Parser, Success, Result, Cause, addCause, getCauseCopy, getLat
  * @param content - the primary content parser
  * @param right - the right bracket parser
  */
-export function bracket<T>(left: Parser<any>, content: Parser<T>, right: Parser<any>): IParser<T>
+export function bracket<T>(left: Parser<any>, content: Parser<T>, right: Parser<any>, name?: string): IParser<T>
 /**
  * Creates a parser that parses bracketed content, ignoring the brackets in
  * the result. The first bracket that matches at the front must also match
@@ -17,19 +17,21 @@ export function bracket<T>(left: Parser<any>, content: Parser<T>, right: Parser<
  * @param ends - a list of possible bracket parsers
  * @param content - the content parser
  */
-export function bracket<T>(ends: Array<Parser<any>>, content: Parser<T>): IParser<T>;
+export function bracket<T>(ends: Array<Parser<any>>, content: Parser<T>, name?: string): IParser<T>;
 
 /**
  * The underlying implementation for bracket overloads.
  */
-export function bracket<T>(first: Array<Parser<any>>|Parser<any>, content: Parser<T>, right?: Parser<any>): IParser<T> {
+export function bracket<T>(first: Array<Parser<any>>|Parser<any>, content: Parser<T>, right?: string|Parser<any>, name?: string): IParser<T> {
+  const nm = typeof right === 'string' ? right : typeof name === 'string' ? name : undefined;
   if (Array.isArray(first)) { // mirrored options
     let ends: IParser<any>[];
     let ps: IParser<T>;
     const len = first.length;
     return lazy(
       () => (ps = unwrap(content), ends = first.map(unwrap)),
-      function parse(s: string, p: number, resin: Success<T>): Result<T> {
+      function parse(s: string, p: number, resin: Success<T>, tree?: ParseNode): Result<T> {
+        const node = tree && openNode(p, nm);
         let cause: Cause;
         let end: IParser<any>;
         for (let i = 0; i < len; i++) {
@@ -40,7 +42,7 @@ export function bracket<T>(first: Array<Parser<any>>|Parser<any>, content: Parse
           }
         }
         if (!end) return fail(p, detailedFail & 1 && `expected opening bracket`);
-        const res = ps.parse(s, resin[1], resin);
+        const res = ps.parse(s, resin[1], resin, node);
         if (!res.length) return res;
         if (detailedFail & 2) cause = res[2];
         const v = res[0];
@@ -48,20 +50,22 @@ export function bracket<T>(first: Array<Parser<any>>|Parser<any>, content: Parse
         const fin = end.parse(s, c, resin as any);
         if (!fin.length) return fail(c, detailedFail & 1 && `expected matching end bracket`, detailedFail & 2 && cause);
         resin[0] = v;
+        if (node) closeNode(node, tree, resin);
         return resin;
       }
     );
-  } else { // individual start and end bracket parsers
+  } else if (typeof right !== 'string') { // individual start and end bracket parsers
     let ps1: IParser<any>;
     let ps2: IParser<T>;
     let ps3: IParser<any>;
     return lazy(
       () => (ps1 = unwrap(first), ps2 = unwrap(content), ps3 = unwrap(right)),
-      function parse(s: string, p: number, resin: Success<T>): Result<T> {
+      function parse(s: string, p: number, resin: Success<T>, tree?: ParseNode): Result<T> {
         let cause: Cause;
+        const node = tree && openNode(p, nm);
         const r1 = ps1.parse(s, p, resin as any);
         if (!r1.length) return r1;
-        const r2 = ps2.parse(s, r1[1], resin);
+        const r2 = ps2.parse(s, r1[1], resin, node);
         if (!r2.length) return r2;
         if (detailedFail & 2 && r2[2]) cause = r2[2];
         const r = r2[0];
@@ -71,6 +75,7 @@ export function bracket<T>(first: Array<Parser<any>>|Parser<any>, content: Parse
           return r3;
         }
         resin[0] = r;
+        if (node) closeNode(node, tree, resin);
         return resin;
       }
     );
@@ -157,14 +162,15 @@ export function seq(...parsers: Array<Parser<any>>): IParser<any[]> {
   const len = parsers.length;
   return lazy(
     () => ps = parsers.map(unwrap),
-    function parse(s: string, p: number, resin: Success<any[]>) {
+    function parse(s: string, p: number, resin: Success<any[]>, tree?: ParseNode) {
+      const node = tree && openNode(p);
       let res: any[];
       let c = p;
       let causes: Cause[];
       let r: Result<any>;
 
       // unroll the first pass to avoid weird allocation
-      r = ps[0].parse(s, c, resin as any);
+      r = ps[0].parse(s, c, resin as any, node);
       if (!r.length) {
         if (detailedFail & 2) {
           const cause = getLatestCause(causes, getCauseCopy());
@@ -177,7 +183,7 @@ export function seq(...parsers: Array<Parser<any>>): IParser<any[]> {
 
         // loop for the second on
         for (let i = 1; i < len; i++) {
-          r = ps[i].parse(s, c, resin as any);
+          r = ps[i].parse(s, c, resin as any, node);
           if (!r.length) {
             if (detailedFail & 2) {
               const cause = getLatestCause(causes, getCauseCopy());
@@ -194,6 +200,7 @@ export function seq(...parsers: Array<Parser<any>>): IParser<any[]> {
       resin[0] = res;
       resin[1] = c;
       if (detailedFail & 2) resin[2] = [p, 'error in seq', null, causes];
+      if (node) closeNode(node, tree, resin);
       return resin;
     }
   );
@@ -245,18 +252,22 @@ export function check(...parsers: Array<Parser<any>>): IParser<null> {
   );
 }
 
-export function andNot<T>(parser: Parser<T>, not: Parser<any>): IParser<T> {
+export function andNot<T>(parser: Parser<T>, not: Parser<any>, name?: string): IParser<T> {
   let ps: IParser<T>;
   let np: IParser<any>;
   return lazy(
     () => (ps = unwrap(parser), np = unwrap(not)),
-    function parse(s: string, p: number, resin: Success<T>): Result<T> {
-      const res = ps.parse(s, p, resin);
+    function parse(s: string, p: number, resin: Success<T>, tree?: ParseNode): Result<T> {
+      const node = tree && openNode(p, name);
+      const res = ps.parse(s, p, resin, node);
       if (!res.length) return res;
       const c = res[1];
       const not = np.parse(s, c, resin);
       if (not.length) return fail(c, detailedFail & 1 && `unexpected ${s.slice(c, res[1])}`);
-      else return res;
+      else {
+        if (node) closeNode(node, tree, res);
+        return res;
+      }
     }
   );
 }

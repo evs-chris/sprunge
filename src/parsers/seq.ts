@@ -1,4 +1,4 @@
-import { IParser, Parser, Success, Result, Cause, addCause, getCauseCopy, getLatestCause, unwrap, fail, detailedFail, lazy, ParseNode, openNode, closeNode } from '../base';
+import { IParser, Parser, Success, Result, Cause, addCause, getCauseCopy, getLatestCause, unwrap, fail, detailedFail, lazy, ParseNode, openNode, closeNode, shared } from '../base';
 
 /**
  * Creates a parser that parses bracketed content, ignoring the brackets in
@@ -205,6 +205,8 @@ export function seq(...parsers: Array<Parser<any>>): IParser<any[]> {
     }
   );
 }
+
+shared.seq = seq;
 
 /**
  * Creates a parser that applies the given parsers in sequence. If one fails,

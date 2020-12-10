@@ -1,5 +1,5 @@
 import { getSearch, SearchFn } from '../search';
-import { IParser, Success, fail, detailedFail } from '../base';
+import { IParser, Success, fail, detailedFail, shared } from '../base';
 
 /**
  * Returns a sorted unique list of characters from the input list.
@@ -65,6 +65,8 @@ export function skip(chars: string): IParser<''> {
     }
   };
 }
+
+shared.skip = skip;
 
 /**
  * Creates a parser that skips at least one of the given characters.

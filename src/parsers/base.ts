@@ -1,4 +1,4 @@
-import { IParser, Parser, Success, Result, Cause, getCauseCopy, getLatestCause, fail, detailedFail, unwrap, lazy, ParseNode, openNode, closeNode } from '../base';
+import { IParser, Parser, Success, Result, Cause, getCauseCopy, getLatestCause, fail, detailedFail, unwrap, lazy, ParseNode, openNode, closeNode, shared } from '../base';
 
 /**
  * Creates a parser using the given parser that always succeeds, returning
@@ -151,6 +151,8 @@ export function map<T, U>(parser: Parser<T>, fn: (t: T, f: (error: string) => vo
   );
 }
 
+shared.map = map;
+
 /**
  * Creates a parser that breaks before running a nested parser.
  *
@@ -165,6 +167,31 @@ export function debug<T>(parser: Parser<T>, name?: string): IParser<T> {
       name;
       debugger;
       return ps.parse(s, p, res, tree);
+    }
+  );
+}
+
+/**
+ * Wraps the given parser in a name if a parse tree is being produced.
+ */
+export function name<T>(parser: Parser<T>, name: string): IParser<T> {
+  let ps: IParser<T>;
+  return lazy(
+    () => ps = unwrap(parser),
+    function parse(s: string, p: number, res: Success<T>, tree?: ParseNode): Result<T> {
+      if (tree) {
+        const node = openNode(p, name);
+        const r = ps.parse(s, p, res);
+        if (r.length) {
+          if (node.children.length) {
+            node.children[0].name = name;
+            tree.children.push(node.children[0]);
+          } else {
+            closeNode(node, tree, r);
+          }
+        }
+        return r;
+      } else return ps.parse(s, p, res);
     }
   );
 }

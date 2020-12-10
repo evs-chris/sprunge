@@ -239,9 +239,17 @@ export interface ParseFn<T> {
 export type ParseOptions = ParseErrorOptions | ParseTreeOptions;
 
 /**
+ * Basic parser options.
+ */
+export interface ParseBaseOptions {
+  /** Whether the input should be trimmed before parsing. Defaults to false. */
+  trim?: boolean
+}
+
+/**
  * Options for controlling how errors are produced by a ParseFn.
  */
-export interface ParseErrorOptions {
+export interface ParseErrorOptions extends ParseBaseOptions {
   /* The number of lines surrounding an error line that should be included in errors. This defaults to 0, and setting it to a number greater than 0 will produce up to 2x + 1 the number of lines, as it applies to lines both above and below the source line. */
   contextLines?: number;
   /* Turns on detailed errors for this parser or parse run. */
@@ -344,11 +352,18 @@ export function findLatestCause(cause: Cause): Cause {
   return res;
 }
 
+const startSpace = /^\s*/;
+export const shared: {
+  skip?(chars: string): Parser<''>;
+  seq?<A, B>(a: Parser<A>, b: Parser<B>): Parser<[A, B]>;
+  map?<A, B>(a: Parser<A>, b: (a: A) => B): Parser<B>;
+} = {};
+
 /**
  * Wraps a parser in a ParseFn.
  *
  * @param parser - the base parser to wrap
- * @param error - default ErrorOptions for the returned ParseFn
+ * @param options - default ParseOptions for the resulting ParseFn
  */
 export function parser<T>(parser: Parser<T>, error?: ParseOptions): ParseFn<T> {
   let mps: IParser<T>;
@@ -356,6 +371,9 @@ export function parser<T>(parser: Parser<T>, error?: ParseOptions): ParseFn<T> {
   const det = (error ? (error.detailed ? 1 : 0) + (error.causes ? 2 : 0) : 0) as DetailedFail;
   const consume = error && error.consumeAll;
   return function parse(input: string, error?: ParseOptions) {
+    const trim = error && 'trim' in error ? error.trim : oerror && oerror.trim;
+    const start = trim ? startSpace.exec(input)[0].length : 0;
+    if (trim) parser = shared.map(shared.seq(parser, shared.skip(' \t\r\n')), ([a]) => a);
     const d = (error ? (error.detailed ? 1 : 0) + (error.causes ? 2 : 0) : det) as DetailedFail;
     let res: Result<T> = [null, 0];
 
@@ -365,10 +383,10 @@ export function parser<T>(parser: Parser<T>, error?: ParseOptions): ParseFn<T> {
     if (d !== detailedFail) {
       const c = detailedFail;
       detailedFail = d;
-      res = (mps || (mps = unwrap(parser))).parse(input, 0, res, node);
+      res = (mps || (mps = unwrap(parser))).parse(input, start, res, node);
       detailedFail = c;
     } else {
-      res = (mps || (mps = unwrap(parser))).parse(input, 0, res, node);
+      res = (mps || (mps = unwrap(parser))).parse(input, start, res, node);
     }
 
     if (res.length && (error && 'consumeAll' in error ? error.consumeAll : consume) && res[1] < input.length) {
@@ -388,6 +406,11 @@ export function parser<T>(parser: Parser<T>, error?: ParseOptions): ParseFn<T> {
     } else {
       if (node) {
         closeNode(node, null, res);
+        if (trim) {
+          const n = node.children[0].children[0];
+          n.result = res[0];
+          return n;
+        }
         return node;
       }
       return res[0];

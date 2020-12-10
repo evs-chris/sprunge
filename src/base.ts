@@ -277,7 +277,11 @@ export interface ParseTreeOptions extends ParseErrorOptions {
  */
 export function getLineNum(input: string, pos: number): number {
   let n = 1;
-  while (~(pos = input.lastIndexOf('\n', pos))) { n++; pos-- };
+  while (~(pos = input.lastIndexOf('\n', pos))) {
+    if (!pos) break;
+    n++;
+    pos--;
+  };
   return n;
 }
 

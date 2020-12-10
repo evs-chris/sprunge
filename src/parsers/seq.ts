@@ -212,12 +212,18 @@ shared.seq = seq;
  * Creates a parser that applies the given parsers in sequence. If one fails,
  * the created parser will also fail. The results are discareded.
  */
-export function check(...parsers: Array<Parser<any>>): IParser<null> {
+export function check(name: string|Parser<any>, ...parsers: Array<Parser<any>>): IParser<null> {
   let ps: Array<IParser<any>>;
+  let nm: string;
+
+  if (typeof name !== 'string') parsers.unshift(name);
+  else nm = name;
+
   const len = parsers.length;
   return lazy(
     () => ps = parsers.map(unwrap),
-    function parse(s: string, p: number, resin: Success<null>) {
+    function parse(s: string, p: number, resin: Success<null>, tree?: ParseNode) {
+      const node = tree && openNode(p, nm);
       let c = p;
       let causes: Cause[];
       let r: Result<any>;
@@ -249,6 +255,7 @@ export function check(...parsers: Array<Parser<any>>): IParser<null> {
 
       resin[0] = null;
       resin[1] = c;
+      if (node) closeNode(node, tree, resin);
       return resin;
     }
   );

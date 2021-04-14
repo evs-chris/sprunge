@@ -124,10 +124,11 @@ Here's the list of built-ins for sprunging:
 | `opt` | `Parser` | if the given parser succeeds, that result will be passed through, otherwise, `opt` will succeed with a `null` result | no |
 | `alt` | `...Parser[]` | applies the given parsers in order until one succeeds, and if none succeed, `alt` will fail | yes |
 | `verify` | `Parser`, verify function | if the given parser succeeds, its result is passed to the verify function, which can pass or fail the `verify` based on its result - `true` to pass or a `string` to fail | yes |
-| `map` | `Parser`, map function | if the given parser succeeds, its result is passed through the given map function for the `map` to return as a success | yes |
+| `map` | `Parser`, map function, error function | if the given parser succeeds, its result is passed through the given map function for the `map` to return as a success. if the error function is called, the parser fails with the message given to the error function | yes |
 | `str` | `...string` | matches one of the given strings exactly | yes |
 | `istr` | `...string` | matches one of the given strings case insensitively | yes |
 | `seq` | `...Parser[]` | matches the given parsers in order, producing a tuple of the matched results if all of the parsers succeed | yes |
+| `not` | `Parser` | matches an empty string only if the given parser fails | yes |
 | `andNot` | `Parser, Parser` | matches the first parser only if the second parser fails to match | yes |
 | `bracket` | left: `Parser`, content: `Parser`, right: `Parser` | skips the `left` content, matches the `content`, and skips the `right` content to produce the `content` result if all three succeed | yes |
 | `bracket` | ends: `Parser[]`, content: `Parser` | skips one of the given `ends`, matches the `content`, and skips the initially matched `ends` parser again to produce the `content` result if all three succeed | yes |

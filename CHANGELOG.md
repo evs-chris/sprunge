@@ -1,3 +1,18 @@
+## 0.2.0
+
+2021-04-14
+
+### Bugs
+
+* Looking for a line numbers for error messages in a string that only contains newlines will no longer activate your processor's space heater mode.
+
+### Not bugs
+
+* `map` now gets a second function argument that can be called with an error to fail the parser.
+* `ParseFn`s now support an option that generates a parse tree rather then the direct results of the parsers. This complicates writing some types of parsers, but makes writing accurate error feedback much easier. Most parsers can now be named.
+* `ParseFn`s can now accept a `trim` option that will remove whitespace from the beginning and end of the input string before parsing.
+* There is now a `not` combinator that fails if its wrapper parser succeeds.
+
 ## 0.1.1
 
 2020-12-07

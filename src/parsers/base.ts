@@ -117,7 +117,7 @@ export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>, nam
 
 /**
  * Creates a parser that applies a verification function to another parser's result.
- * If the function returns true, the verify parser will succeed witht the nested
+ * If the function returns true, the verify parser will succeed with the nested
  * parser's result. If the function returns a string, the verify parser will fail
  * with that as the message.
  *

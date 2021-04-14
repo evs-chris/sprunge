@@ -261,6 +261,12 @@ export function check(name: string|Parser<any>, ...parsers: Array<Parser<any>>):
   );
 }
 
+/**
+ * Creates a parser that matches a given parser only if the second given parser does not match.
+ *
+ * @param parser - the parser to match
+ * @param not - the parser that must not match
+ */
 export function andNot<T>(parser: Parser<T>, not: Parser<any>, name?: string): IParser<T> {
   let ps: IParser<T>;
   let np: IParser<any>;

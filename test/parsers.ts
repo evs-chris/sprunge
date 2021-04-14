@@ -1,4 +1,4 @@
-import { Success, skip, skip1, read, read1, chars, readTo, read1To, alt, rep, rep1, str, opt, repsep, rep1sep, chain, map, bracket, seq, andNot, check, getCause } from '../src/index';
+import { Success, skip, skip1, read, read1, chars, readTo, read1To, alt, rep, rep1, str, opt, repsep, rep1sep, chain, map, bracket, seq, andNot, check, getCause, not } from '../src/index';
 
 const q = QUnit;
 
@@ -85,6 +85,12 @@ q.test('str', t => {
   t.equal(p.parse('foo', 0, success)[0], 'foo');
   t.equal(p.parse('bar', 0, success)[0], 'bar');
   t.equal(p.parse('oof', 0, success).length, 0);
+});
+
+q.test('not', t => {
+  const p = map(seq(not(str('foo')), read1('abcdefghijklmnop')), ([, v]) => v);
+  t.equal(p.parse('oofa', 0, success)[0].length, 4);
+  t.equal(p.parse('fooa', 0, success).length, 0);
 });
 
 q.test('opt', t => {

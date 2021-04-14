@@ -26,6 +26,28 @@ export function opt<T>(parser: Parser<T>, name?: string): IParser<null|T> {
 }
 
 /**
+ * Creates a parser using the given parser the fails if the given parser
+ * succeeds. This will never advance the pointer in the input.
+ *
+ * @param parser - the parser to check for success
+ */
+export function not(parser: Parser<any>, message?: string): IParser<''> {
+  let ps: IParser<''>;
+  return lazy(
+    () => ps = unwrap(parser),
+    function parse(s: string, p: number, resin: Success<''>): Result<''> {
+      const res = ps.parse(s, p, resin);
+      if (res.length) return fail(p, detailedFail & 1 && (message || `unexpected ${s.slice(p, res[1])}`));
+      else {
+        resin[0] = '';
+        resin[1] = p;
+        return resin;
+      }
+    }
+  );
+}
+
+/**
  * Creates a parser that applies the given parsers until one succeeds.
  *
  * @param parsers - the list of parsers to apply to the input

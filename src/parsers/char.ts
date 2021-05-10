@@ -76,13 +76,13 @@ shared.skip = skip;
  * `chars` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function skip1(chars: string): IParser<''> {
+export function skip1(chars: string, name?: string): IParser<''> {
   const sorted = charList(chars);
   const contains = getSearch(chars);
   return {
     parse(s: string, p: number, res: Success<''>) {
       res[1] = seekWhileChar(s, p, sorted, contains);
-      if (res[1] === p) return fail(p, detailedFail & 1 && `expected at least one of ${JSON.stringify(chars)}`);
+      if (res[1] === p) return fail(p, detailedFail & 1 && `expected at least one of ${JSON.stringify(chars)}`, name);
       return res;
     }
   };
@@ -122,13 +122,13 @@ export function read(chars: string): IParser<string> {
  * `chars` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function read1(chars: string): IParser<string> {
+export function read1(chars: string, name?: string): IParser<string> {
   const sorted = charList(chars);
   const contains = getSearch(chars);
   return {
     parse(s: string, p: number, res: Success<string>) {
       const r = seekWhileChar(s, p, sorted, contains);
-      if (r === p) return fail(p, detailedFail & 1 && `expected one of ${chars}`);
+      if (r === p) return fail(p, detailedFail & 1 && `expected one of ${JSON.stringify(chars)}`, name);
       res[0] = s.substring(p, r);
       res[1] = r;
       return res;
@@ -147,7 +147,7 @@ export function read1(chars: string): IParser<string> {
  * `allowed` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function chars(count: number, allowed?: string): IParser<string> {
+export function chars(count: number, allowed?: string, name?: string): IParser<string> {
   const sorted = allowed && charList(allowed);
   const search = getSearch(sorted || '');
   return {
@@ -155,12 +155,12 @@ export function chars(count: number, allowed?: string): IParser<string> {
       if (s.length - p >= count) {
         const str = s.substr(p, count);
         if (sorted) {
-          for (let i = 0; i < count; i++) if (!search(sorted, str[i])) return fail(p + i, detailedFail & 1 && 'unexpected char');
+          for (let i = 0; i < count; i++) if (!search(sorted, str[i])) return fail(p + i, detailedFail & 1 && 'unexpected char', name);
         }
         res[0] = str;
         res[1] = p + count;
         return res;
-      } else return fail(p, detailedFail & 1 && 'unexpected end of input');
+      } else return fail(p, detailedFail & 1 && 'unexpected end of input', name);
     }
   };
 }
@@ -175,18 +175,18 @@ export function chars(count: number, allowed?: string): IParser<string> {
  * `disallowed` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function notchars(count: number, disallowed: string): IParser<string> {
+export function notchars(count: number, disallowed: string, name?: string): IParser<string> {
   const sorted = charList(disallowed);
   const search = getSearch(sorted);
   return {
     parse(s: string, p: number, res: Success<string>) {
       if (s.length - p >= count) {
         const str = s.substr(p, count);
-        for (let i = 0; i < count; i++) if (search(sorted, str[i])) return fail(p + i, detailedFail & 1 && 'unexpected char');
+        for (let i = 0; i < count; i++) if (search(sorted, str[i])) return fail(p + i, detailedFail & 1 && 'unexpected char', name);
         res[0] = str;
         res[1] = p + count;
         return res;
-      } else return fail(p, detailedFail & 1 && 'unexpected end of input');
+      } else return fail(p, detailedFail & 1 && 'unexpected end of input', name);
     }
   };
 }
@@ -205,13 +205,13 @@ export function notchars(count: number, disallowed: string): IParser<string> {
  * `stop` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function readTo(stop: string, end?: true): IParser<string> {
+export function readTo(stop: string, end?: true, name?: string): IParser<string> {
   const sorted = charList(stop);
   const contains = getSearch(stop);
   return {
     parse(s: string, p: number, res: Success<string>) {
       const skipped = seekUntilChar(s, p, sorted, contains);
-      if (!end && skipped >= s.length) return fail(skipped - 1, detailedFail & 1 && `expected one of '${stop}' before end of input`);
+      if (!end && skipped >= s.length) return fail(skipped - 1, detailedFail & 1 && `expected one of ${JSON.stringify(stop)} before end of input`, name);
       res[0] = skipped ? s.substring(p, skipped) : '';
       res[1] = skipped;
       return res;
@@ -233,23 +233,23 @@ export function readTo(stop: string, end?: true): IParser<string> {
  * `stop` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function read1To(stop: string, end?: true): IParser<string> {
+export function read1To(stop: string, end?: true, name?: string): IParser<string> {
   const op = readTo(stop, end);
   return {
     parse(s: string, p: number, resin: Success<string>) {
       const res = op.parse(s, p, resin);
       if (!res.length) return res;
       else if (res[1] > p) return res;
-      else return fail(p, detailedFail & 1 && `expected at least one character`);
+      else return fail(p, detailedFail & 1 && `expected at least one character`, name);
     }
   }
 }
 
-export function readToDyn(state: { stop: string }, end?: true): IParser<string> {
+export function readToDyn(state: { stop: string }, end?: true, name?: string): IParser<string> {
   return {
     parse(s: string, p: number, res: Success<string>) {
       const skipped = seekUntilChar(s, p, state.stop, getSearch(state.stop, false));
-      if (!end && skipped >= s.length) return fail(skipped - 1, detailedFail & 1 && `expected one of '${state.stop}' before end of input`);
+      if (!end && skipped >= s.length) return fail(skipped - 1, detailedFail & 1 && `expected one of '${JSON.stringify(state.stop)}' before end of input`, name);
       res[0] = skipped ? s.substring(p, skipped) : '';
       res[1] = skipped;
       return res;
@@ -257,19 +257,19 @@ export function readToDyn(state: { stop: string }, end?: true): IParser<string> 
   };
 }
 
-export function read1ToDyn(state: { stop: string }, end?: true): IParser<string> {
+export function read1ToDyn(state: { stop: string }, end?: true, name?: string): IParser<string> {
   const op = readToDyn(state, end);
   return {
     parse(s: string, p: number, res: Success<string>) {
       const r = op.parse(s, p, res);
       if (!r.length) return r;
-      else if (r[0].length < 1) return fail(p, detailedFail & 1 && `expected at least one characater`);
+      else if (r[0].length < 1) return fail(p, detailedFail & 1 && `expected at least one characater`, name);
       else return res;
     }
   }
 }
 
-export function peek(count: number): IParser<string> {
+export function peek(count: number, name?: string): IParser<string> {
   return {
     parse(s: string, p: number, res: Success<string>) {
       const r = s.substr(p, count);
@@ -277,7 +277,7 @@ export function peek(count: number): IParser<string> {
         res[0] = r;
         res[1] = p + count;
         return res;
-      } else return fail(p, detailedFail & 1 && `unexpected end of input`);
+      } else return fail(p, detailedFail & 1 && `unexpected end of input`, name);
     }
   }
 }

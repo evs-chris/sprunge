@@ -1,4 +1,4 @@
-import { IParser, Parser, Success, Result, Cause, getCauseCopy, getLatestCause, fail, detailedFail, unwrap, lazy, ParseNode, openNode, closeNode, shared } from '../base';
+import { IParser, Parser, Success, Result, Cause, getCauseCopy, getLatestCause, suggestCauseName, overrideCauseName, fail, detailedFail, unwrap, lazy, ParseNode, openNode, closeNode, shared } from '../base';
 
 /**
  * Creates a parser using the given parser that always succeeds, returning
@@ -78,12 +78,16 @@ export function alt<T>(name?: string|Parser<T>, ...parsers: Array<Parser<T>>): I
         if (res.length) {
           if (node) closeNode(node, tree, res);
           return res;
-        } else if (detailedFail & 2) (fails || (fails = [])).push(getCauseCopy());
+        } else if (detailedFail & 2) (fails || (fails = [])).push(getCauseCopy(nm));
       }
       if (detailedFail & 2) {
-        const cause = getLatestCause(fails, [p, `expected ${nm || 'alternate'}`]);
-        return fail(cause[0], cause[1], cause[2], cause[3]);
-      } else return fail(p, detailedFail & 1 && `expected ${nm || 'alternate'}`);
+        const cause = getLatestCause(fails, [p, `expected ${nm || 'alternate'}`, nm]);
+        if (fails.length && fails.map(f => f[0]).reduce((a, c) => a + c, 0) === fails[0][0] * fails.length) cause[2] = nm;
+        return fail(cause[0], cause[1], cause[2] || nm, cause[3], cause[4]);
+      } else {
+        if (detailedFail & 1 && getLatestCause()[0] === p && nm) overrideCauseName(nm);
+        return fail(p, detailedFail & 1 && `expected ${nm || 'alternate'}`, nm);
+      }
     }
   );
 }
@@ -107,7 +111,7 @@ export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>, nam
       if (!r.length) return r as any;
       c = r[1];
       const n = select(r[0]);
-      if (!n) return fail(c, detailedFail & 1 && `chain selection failed`);
+      if (!n) return fail(c, detailedFail & 1 && `chain selection failed`, name);
       const rr = n.parse(s, c, res as any, node);
       if (rr.length && node) closeNode(node, tree, rr);
       return rr;
@@ -124,7 +128,7 @@ export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>, nam
  * @param parser - the nested parser to apply
  * @param verify - the verification function to apply
  */
-export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string, name?: string): Parser<T> {
+export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string, name?: string): IParser<T> {
   let ps: IParser<T>;
   return lazy(
     () => ps = unwrap(parser),
@@ -137,7 +141,7 @@ export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string, name
         if (node) closeNode(node, tree, r);
         return r;
       }
-      else return fail(r[1], v);
+      else return fail(r[1], v, name);
     }
   );
 }
@@ -165,10 +169,13 @@ export function map<T, U>(parser: Parser<T>, fn: (t: T, f: (error: string) => vo
         (r as unknown[])[0] = fn(r[0], error);
         const cur = err;
         err = last;
-        if (cur) return fail(p, cur);
+        if (cur) return fail(p, cur, name);
         if (node) closeNode(node, tree, r);
         return r as any;
-      } else return r as any;
+      } else {
+        suggestCauseName(name);
+        return r as any;
+      }
     }
   );
 }
@@ -212,8 +219,13 @@ export function name<T>(parser: Parser<T>, name: string): IParser<T> {
             closeNode(node, tree, r);
           }
         }
+        if (detailedFail & 1) suggestCauseName(name);
         return r;
-      } else return ps.parse(s, p, res);
+      } else {
+        const r = ps.parse(s, p, res);
+        if (!r.length && detailedFail & 1) suggestCauseName(name);
+        return r;
+      }
     }
   );
 }

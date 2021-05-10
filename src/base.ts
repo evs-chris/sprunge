@@ -12,7 +12,7 @@ export type Success<T> = [T, number, Cause?];
  * This is a tuple of the position in the input and an error message. These
  * should only be produced when `detailedErrors()` returns `true`.
  */
-export type Cause = [number, string, Cause?, Cause[]?];
+export type Cause = [number, string, string?, Cause?, Cause[]?];
 
 /**
  * Failure is signified by an empty array, but you should only ever return
@@ -48,7 +48,10 @@ export function getCause(): Cause { return _cause; }
  * to hold on to for as long as you need, and should probably be gated
  * behind a check for detailedErrors().
  */
-export function getCauseCopy(): Cause { return _cause.slice() as Cause; }
+export function getCauseCopy(name?: string): Cause {
+  suggestCauseName(name);
+  return _cause.slice() as Cause; 
+}
 
 /**
  * Resets the state of the automatically tracked latest cause.
@@ -58,6 +61,21 @@ export function resetLatestCause() {
   _latestCause[1] = '';
   _latestCause[2] = undefined;
   _latestCause[3] = undefined;
+  _latestCause[4] = undefined;
+}
+
+export function suggestCauseName(name?: string) {
+  if (!_cause[2] && name) {
+    if (_cause[0] === _latestCause[0] && _cause[2] === _latestCause[2]) _latestCause[2] = name;
+    _cause[2] = name;
+  }
+}
+
+export function overrideCauseName(name?: string) {
+  if (name) {
+    if (_cause[0] === _latestCause[0] && _cause[2] === _latestCause[2]) _latestCause[2] = name;
+    _cause[2] = name;
+  }
 }
 
 /**
@@ -69,16 +87,18 @@ export function resetLatestCause() {
  * @param message - the optional failure message
  * @param causes - an optional array of inner causes
  */
-export function fail(pos: number, message: false|string, cause?: Cause, causes?: Cause[]): Failure {
+export function fail(pos: number, message: false|string, name?: string, cause?: Cause, causes?: Cause[]): Failure {
   _cause[0] = pos;
   _cause[1] = message || '';
-  _cause[2] = cause;
-  _cause[3] = causes;
+  _cause[2] = name;
+  _cause[3] = cause;
+  _cause[4] = causes;
   if (detailedFail & 1 && _cause[0] >= _latestCause[0]) {
     _latestCause[0] = _cause[0];
     _latestCause[1] = _cause[1];
     _latestCause[2] = _cause[2];
     _latestCause[3] = _cause[3];
+    _latestCause[4] = _cause[4];
   }
   return Fail;
 }
@@ -89,7 +109,7 @@ export function fail(pos: number, message: false|string, cause?: Cause, causes?:
  * @param cause - the cause to add
  */
 export function addCause(cause: Cause) {
-  (_cause[3] || (_cause[3] = [])).push(cause);
+  (_cause[4] || (_cause[4] = [])).push(cause);
 }
 
 /**
@@ -222,6 +242,8 @@ export interface ParseError {
   causes?: ParseError[];
   /** The farthest processed cause. */
   latest?: ParseError;
+  /** The name of the parser that registered the error. */
+  parser?: string;
 }
 
 /**
@@ -330,8 +352,9 @@ export function getParseError(cause: Cause, input: string, context: number): Par
     source,
     message: cause[1],
     marked: `${lines.slice(0, markerOffset).join('\n')}\n${marker}\n${lines.slice(markerOffset).join('\n')}`,
-    cause: cause[2] && getParseError(cause[2], input, context),
-    causes: cause[3] && cause[3].map(c => getParseError(c, input, context)),
+    cause: cause[3] && getParseError(cause[3], input, context),
+    causes: cause[4] && cause[4].map(c => getParseError(c, input, context)),
+    parser: cause[2],
   };
 }
 
@@ -342,13 +365,14 @@ export function getParseError(cause: Cause, input: string, context: number): Par
  */
 export function findLatestCause(cause: Cause): Cause {
   let res: Cause = cause;
-  if (cause[2]) {
-    const c = findLatestCause(cause[2]);
+  if (cause[3]) {
+    const c = findLatestCause(cause[3]);
     if (c[0] > res[0]) res = c;
   }
-  if (cause[3]) {
-    for (let i = 0; i < cause[3].length; i++) {
-      const c = findLatestCause(cause[3][i]);
+  if (cause[4]) {
+    const len = cause[4].length;
+    for (let i = 0; i < len; i++) {
+      const c = findLatestCause(cause[4][i]);
       if (c[0] > res[0]) res = c;
     }
   }
@@ -400,7 +424,7 @@ export function parser<T>(parser: Parser<T>, error?: ParseOptions): ParseFn<T> {
     if (!res.length) {
       const cause = getCause();
       const ctx = (error && 'contextLines' in error ? error.contextLines : oerror && oerror.contextLines) || 0;
-      const err = getParseError(getLatestCause(cause[3] || [], cause), input, ctx);
+      const err = getParseError(getLatestCause(cause[4] || [], cause), input, ctx);
       const latest = findLatestCause(cause);
       if (cause !== latest) err.latest = getParseError(latest, input, ctx);
       if (error && 'throw' in error ? error.throw : oerror && oerror.throw) {
@@ -472,9 +496,10 @@ export function concat(strings: string[]): string {
  * @param causes - the causes to check
  * @param outer - the immediate cause
  */
-export function getLatestCause(causes: Cause[], outer: Cause): Cause {
+export function getLatestCause(causes?: Cause[], outer?: Cause): Cause {
+  if (!causes || !outer) return _latestCause;
   let max = outer[0];
-  outer[3] = causes;
+  outer[4] = causes;
   let f: Cause;
   const cs = causes || [];
   for (let i = 0; i < cs.length; i++) {
@@ -483,6 +508,6 @@ export function getLatestCause(causes: Cause[], outer: Cause): Cause {
       max = f[0];
     }
   }
-  if (f) return [f[0], f[1], outer];
+  if (f) return [f[0], f[1], f[2], outer];
   else return outer;
 }

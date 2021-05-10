@@ -24,7 +24,7 @@ export function rep<T>(parser: Parser<T>, name?: string): IParser<T[]> {
       if (!res.length) {
         resin[0] = empty;
         resin[1] = c;
-        if (detailedFail & 2) resin[2] = getCauseCopy();
+        if (detailedFail & 2) resin[2] = getCauseCopy(name);
         return resin;
       } else {
         c = res[1];
@@ -39,7 +39,7 @@ export function rep<T>(parser: Parser<T>, name?: string): IParser<T[]> {
         } else {
           resin[0] = seq || [];
           resin[1] = c;
-          detailedFail & 2 && (resin[2] = getCauseCopy());
+          detailedFail & 2 && (resin[2] = getCauseCopy(name));
           if (node) closeNode(node, tree, resin);
           return resin;
         }
@@ -80,13 +80,13 @@ export function rep1<T>(parser: Parser<T>, name?: string): IParser<T[]> {
           } else {
             resin[0] = seq;
             resin[1] = c;
-            if (detailedFail & 2) resin[2] = getCauseCopy();
+            if (detailedFail & 2) resin[2] = getCauseCopy(name);
             if (node) closeNode(node, tree, resin);
             return resin;
           }
         }
       } else {
-        return fail(c, detailedFail & 1 && `expected at least one ${name || 'item'}`, detailedFail & 2 && getCauseCopy());
+        return fail(c, detailedFail & 1 && `expected at least one ${name || 'item'}`, name, detailedFail & 2 && getCauseCopy(name));
       }
 
     }
@@ -126,7 +126,7 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
         c = res[1];
         r = ps2.parse(s, c, resin as any);
         if (!r.length) {
-          if (trail === 'require') return fail(m, detailedFail & 1 && `expected separator`);
+          if (trail === 'require') return fail(m, detailedFail & 1 && `expected separator`, name);
           resin[0] = [rr];
           resin[1] = c;
           if (node) closeNode(node, tree, resin);
@@ -139,7 +139,7 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
       } else {
         resin[0] = empty;
         resin[1] = p;
-        if (detailedFail & 2) resin[2] = getCauseCopy();
+        if (detailedFail & 2) resin[2] = getCauseCopy(name);
         return resin;
       }
 
@@ -151,7 +151,7 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
           rr = res[0];
           r = ps2.parse(s, c, resin as any);
           if (!r.length) {
-            if (trail === 'require') return fail(m, detailedFail & 1 && `expected separator`);
+            if (trail === 'require') return fail(m, detailedFail & 1 && `expected separator`, name);
             seq.push(rr);
             break;
           } else c = r[1];
@@ -159,14 +159,14 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
         } else if (trail === 'disallow' && seq && seq.length) {
           if (detailedFail & 2) {
             const cause = getCause();
-            return fail(cause[0], cause[1], [c, `unexpected separator`]);
+            return fail(cause[0], cause[1], name, [c, `unexpected separator`]);
           }
-          else return fail(c, detailedFail & 1 && `unexpected separator`);
+          else return fail(c, detailedFail & 1 && `unexpected separator`, name);
         } else break;
       }
       resin[0] = seq;
       resin[1] = c;
-      detailedFail & 2 && (resin[2] = getCauseCopy());
+      detailedFail & 2 && (resin[2] = getCauseCopy(name));
       if (node) closeNode(node, tree, resin);
       return resin;
     }
@@ -203,7 +203,7 @@ export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'
         l = c = res[1];
         const r = ps2.parse(s, c, resin as any);
         if (!r.length) {
-          if (trail === 'require') return fail(c, detailedFail & 1 && `expected separator`);
+          if (trail === 'require') return fail(c, detailedFail & 1 && `expected separator`, name);
         } else {
           c = r[1];
 
@@ -215,7 +215,7 @@ export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'
               l = c = res[1];
               const r = ps2.parse(s, c, resin as any);
               if (!r.length) {
-                if (trail === 'require') return fail(c, detailedFail & 1 && `expected separator`);
+                if (trail === 'require') return fail(c, detailedFail & 1 && `expected separator`, name);
                 break;
               } else c = r[1];
             } else if (trail === 'disallow' && seq && seq.length) {
@@ -230,7 +230,7 @@ export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'
 
       resin[0] = seq;
       resin[1] = c;
-      if (detailedFail & 2) resin[2] = getCauseCopy();
+      if (detailedFail & 2) resin[2] = getCauseCopy(name);
       if (node) closeNode(node, tree, resin);
       return resin;
     }

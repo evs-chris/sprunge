@@ -41,14 +41,14 @@ export function bracket<T>(first: Array<Parser<any>>|Parser<any>, content: Parse
             break;
           }
         }
-        if (!end) return fail(p, detailedFail & 1 && `expected opening bracket`);
+        if (!end) return fail(p, detailedFail & 1 && `expected opening bracket`, name);
         const res = ps.parse(s, resin[1], resin, node);
         if (!res.length) return res;
         if (detailedFail & 2) cause = res[2];
         const v = res[0];
         const c = res[1];
         const fin = end.parse(s, c, resin as any);
-        if (!fin.length) return fail(c, detailedFail & 1 && `expected matching end bracket`, detailedFail & 2 && cause);
+        if (!fin.length) return fail(c, detailedFail & 1 && `expected matching end bracket`, name, detailedFail & 2 && cause);
         resin[0] = v;
         if (node) closeNode(node, tree, resin);
         return resin;
@@ -174,7 +174,7 @@ export function seq(...parsers: Array<Parser<any>>): IParser<any[]> {
       if (!r.length) {
         if (detailedFail & 2) {
           const cause = getLatestCause(causes, getCauseCopy());
-          return fail(cause[0], cause[1], cause[2], cause[3]);
+          return fail(cause[0], cause[1], cause[2], cause[3], cause[4]);
         } else return r;
       } else {
         if (detailedFail & 2 && r[2]) (causes || (causes = [])).push(r[2]);
@@ -187,7 +187,7 @@ export function seq(...parsers: Array<Parser<any>>): IParser<any[]> {
           if (!r.length) {
             if (detailedFail & 2) {
               const cause = getLatestCause(causes, getCauseCopy());
-              return fail(cause[0], cause[1], cause[2], cause[3]);
+              return fail(cause[0], cause[1], cause[2], cause[3], cause[4]);
             } else return r;
           } else {
             if (detailedFail & 2 && r[2]) (causes || (causes = [])).push(r[2]);
@@ -199,7 +199,7 @@ export function seq(...parsers: Array<Parser<any>>): IParser<any[]> {
 
       resin[0] = res;
       resin[1] = c;
-      if (detailedFail & 2) resin[2] = [p, 'error in seq', null, causes];
+      if (detailedFail & 2) resin[2] = [p, 'error in seq', null, null, causes];
       if (node) closeNode(node, tree, resin);
       return resin;
     }
@@ -232,8 +232,8 @@ export function check(name: string|Parser<any>, ...parsers: Array<Parser<any>>):
       r = ps[0].parse(s, c, resin as any);
       if (!r.length) {
         if (detailedFail & 2) {
-          const cause = getLatestCause(causes, getCauseCopy());
-          return fail(cause[0], cause[1], cause[2], cause[3]);
+          const cause = getLatestCause(causes, getCauseCopy(nm));
+          return fail(cause[0], cause[1], cause[2], cause[3], cause[4]);
         } else return r;
       } else {
         if (detailedFail & 2 && r[2]) (causes || (causes = [])).push(r[2]);
@@ -243,8 +243,8 @@ export function check(name: string|Parser<any>, ...parsers: Array<Parser<any>>):
           r = ps[i].parse(s, c, resin as any);
           if (!r.length) {
             if (detailedFail & 2) {
-              const cause = getLatestCause(causes, getCauseCopy());
-              return fail(cause[0], cause[1], cause[2], cause[3]);
+              const cause = getLatestCause(causes, getCauseCopy(nm));
+              return fail(cause[0], cause[1], cause[2], cause[3], cause[4]);
             } else return r;
           } else {
             if (detailedFail & 2 && r[2]) (causes || (causes = [])).push(r[2]);
@@ -278,7 +278,7 @@ export function andNot<T>(parser: Parser<T>, not: Parser<any>, name?: string): I
       if (!res.length) return res;
       const c = res[1];
       const not = np.parse(s, c, resin);
-      if (not.length) return fail(c, detailedFail & 1 && `unexpected ${s.slice(c, res[1])}`);
+      if (not.length) return fail(c, detailedFail & 1 && `unexpected ${s.slice(c, res[1])}`, name);
       else {
         if (node) closeNode(node, tree, res);
         return res;

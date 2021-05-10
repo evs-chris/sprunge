@@ -1,3 +1,11 @@
+## 0.3.1
+
+2021-05-10
+
+### Bugs(?)
+
+* `map` parsers that use the error function to further check the result of the inner parser now use the position of the successful inner parser for the resulting error. This is done because alternates that match further in but fail, possibly even within the mapped parser, tend to be further along in the input than the beginning of the `map` starting point. Using the successful mapped parser position for the error tends to make it bubble up as the latest error in parsing.
+
 ## 0.3.0
 
 2021-05-10

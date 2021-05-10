@@ -1,3 +1,18 @@
+## 0.3.0
+
+2021-05-10
+
+### Not bugs
+
+* Parsers with names now try to carry their name through for error messages. This allows setting a name at the `map`/`alt` level to specify a name for a `read` failure. You can also wrap nameless parsers in a `name` parser to give them a name. The combinators will only apply their name to a failure if the failure isn't already named.
+* There are now case-insensitive versions of the character-based parsers i.e. `iskip`, `ichar`, `iread`, `iread1`, `ireadTo`, `iread1To`, `notichars`. These parsers do not covert their matched content to any particular case.
+
+### Random other stuff
+
+* The tests are now split out a little more logically.
+* A few previously untested parsers are now tested.
+* There is test coverage for parser names.
+
 ## 0.2.0
 
 2021-04-14

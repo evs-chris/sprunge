@@ -57,7 +57,7 @@ export function seekWhileChar(s: string, p: number, chars: string, contains: Sea
  */
 export function skip(chars: string): IParser<''> {
   const sorted = charList(chars);
-  const contains = getSearch(chars);
+  const contains = getSearch(sorted);
   return {
     parse(s: string, p: number, res: Success<''>) {
       res[1] = seekWhileChar(s, p, sorted, contains);
@@ -69,6 +69,20 @@ export function skip(chars: string): IParser<''> {
 shared.skip = skip;
 
 /**
+ * Creates a parser that skips the given characters case insensitively.
+ *
+ * @param chars - the characters to skip
+ *
+ * This will successfully skip 0 character.
+ *
+ * `chars` will be sorted for use in the returned parser to work with a
+ * somewhat faster binary search.
+ */
+export function iskip(chars: string, name?: string): IParser<''> {
+  return skip(chars.toUpperCase() + chars.toLowerCase());
+}
+
+/**
  * Creates a parser that skips at least one of the given characters.
  *
  * @param chars - the charaters to skip
@@ -78,7 +92,7 @@ shared.skip = skip;
  */
 export function skip1(chars: string, name?: string): IParser<''> {
   const sorted = charList(chars);
-  const contains = getSearch(chars);
+  const contains = getSearch(sorted);
   return {
     parse(s: string, p: number, res: Success<''>) {
       res[1] = seekWhileChar(s, p, sorted, contains);
@@ -86,6 +100,18 @@ export function skip1(chars: string, name?: string): IParser<''> {
       return res;
     }
   };
+}
+
+/**
+ * Creates a parser that skips at least one of the given characters case insensitively.
+ *
+ * @param chars - the charaters to skip
+ *
+ * `chars` will be sorted for use in the returned parser to work with a
+ * somewhat faster binary search.
+ */
+export function iskip1(chars: string, name?: string): IParser<''> {
+  return skip1(chars.toUpperCase() + chars.toLowerCase(), name);
 }
 
 /**
@@ -100,7 +126,7 @@ export function skip1(chars: string, name?: string): IParser<''> {
  */
 export function read(chars: string): IParser<string> {
   const sorted = charList(chars);
-  const contains = getSearch(chars);
+  const contains = getSearch(sorted);
   return {
     parse(s: string, p: number, res: Success<string>) {
       const r = seekWhileChar(s, p, sorted, contains);
@@ -109,6 +135,20 @@ export function read(chars: string): IParser<string> {
       return res;
     }
   }
+}
+
+/**
+ * Creates a parser that reads a string consisting of the given characters case insensitively.
+ *
+ * @param chars - the characters to read
+ *
+ * This will successfully read an empty string.
+ *
+ * `chars` will be sorted for use in the returned parser to work with a
+ * somewhat faster binary search.
+ */
+export function iread(chars: string): IParser<string> {
+  return read(chars.toUpperCase() + chars.toLowerCase());
 }
 
 /**
@@ -124,7 +164,7 @@ export function read(chars: string): IParser<string> {
  */
 export function read1(chars: string, name?: string): IParser<string> {
   const sorted = charList(chars);
-  const contains = getSearch(chars);
+  const contains = getSearch(sorted);
   return {
     parse(s: string, p: number, res: Success<string>) {
       const r = seekWhileChar(s, p, sorted, contains);
@@ -134,6 +174,21 @@ export function read1(chars: string, name?: string): IParser<string> {
       return res;
     }
   };
+}
+
+/**
+ * Creates a parser that reads a string consisting of at least one of the given
+ * characters case insensitively.
+ *
+ * @param chars - the characters to read
+ *
+ * This will not successfully read an empty string.
+ *
+ * `chars` will be sorted for use in the returned parser to work with a
+ * somewhat faster binary search.
+ */
+export function iread1(chars: string, name?: string): IParser<string> {
+  return read1(chars.toUpperCase() + chars.toLowerCase(), name);
 }
 
 /**
@@ -166,7 +221,22 @@ export function chars(count: number, allowed?: string, name?: string): IParser<s
 }
 
 /**
- * Creates a parser that reads a string of a fixed length, optionally excluding a
+ * Creates a parser that reads a string of a fixed length, optionally from a
+ * specific set of allowed characters case insensitively.
+ *
+ * @param count - the number of characters to read
+ * @param allowed - an optional list of characters that the parsed string must
+ * match
+ *
+ * `allowed` will be sorted for use in the returned parser to work with a
+ * somewhat faster binary search.
+ */
+export function ichars(count: number, allowed?: string, name?: string): IParser<string> {
+  return chars(count, allowed && allowed.toUpperCase() + allowed.toLowerCase(), name);
+}
+
+/**
+ * Creates a parser that reads a string of a fixed length, excluding a
  * specific set of characters.
  *
  * @param count - the number of characters to read
@@ -192,6 +262,20 @@ export function notchars(count: number, disallowed: string, name?: string): IPar
 }
 
 /**
+ * Creates a parser that reads a string of a fixed length, excluding a
+ * specific set of characters case insensitively.
+ *
+ * @param count - the number of characters to read
+ * @param disallowed - a list of characters that the parsed string must not match
+ *
+ * `disallowed` will be sorted for use in the returned parser to work with a
+ * somewhat faster binary search.
+ */
+export function notichars(count: number, disallowed: string, name?: string): IParser<string> {
+  return notchars(count, disallowed.toUpperCase() + disallowed.toLowerCase(), name);
+}
+
+/**
  * Creates a parser that reads a string until it encounters one of the given
  * characters, optionally accepting the end of the input as a valid stopping
  * point.
@@ -207,7 +291,7 @@ export function notchars(count: number, disallowed: string, name?: string): IPar
  */
 export function readTo(stop: string, end?: true, name?: string): IParser<string> {
   const sorted = charList(stop);
-  const contains = getSearch(stop);
+  const contains = getSearch(sorted);
   return {
     parse(s: string, p: number, res: Success<string>) {
       const skipped = seekUntilChar(s, p, sorted, contains);
@@ -217,6 +301,24 @@ export function readTo(stop: string, end?: true, name?: string): IParser<string>
       return res;
     }
   };
+}
+
+/**
+ * Creates a parser that reads a string until it encounters one of the given
+ * characters case insensitively, optionally accepting the end of the input as 
+ * a valid stopping point.
+ *
+ * @param stop - the list of characaters that will end the string
+ * @param end - if `true` will accept the end of enput as a valid stopping
+ * point
+ *
+ * This will successfully parse an empty string.
+ *
+ * `stop` will be sorted for use in the returned parser to work with a
+ * somewhat faster binary search.
+ */
+export function ireadTo(stop: string, end?: true, name?: string): IParser<string> {
+  return readTo(stop.toUpperCase() + stop.toLowerCase(), end, name);
 }
 
 /**
@@ -245,6 +347,34 @@ export function read1To(stop: string, end?: true, name?: string): IParser<string
   }
 }
 
+/**
+ * Creates a parser that reads a string of at least one character until it
+ * encounters one of the given characters case insensitively, optionally accepting
+ * the end of the input as a valid stopping point.
+ *
+ * @param stop - the list of characaters that will end the string
+ * @param end - if `true` will accept the end of input as a valid stopping
+ * point
+ *
+ * This will _not_ successfully parse an empty string.
+ *
+ * `stop` will be sorted for use in the returned parser to work with a
+ * somewhat faster binary search.
+ */
+export function iread1To(stop: string, end?: true, name?: string): IParser<string> {
+  return read1To(stop.toUpperCase() + stop.toLowerCase(), end, name);
+}
+
+/**
+ * Creates a parser that reads a string until of encounters one of the given characters.
+ * The string of stop characters may change from parse to parse. This can also
+ * optionally accept the end of input as a valid stopping point.
+ *
+ * @param state - an object with the list of characters that will end the string
+ * @param end - if `true` will accept the end of input as a valid stopping point
+ *
+ * This will successfully parse an empty string.
+ */
 export function readToDyn(state: { stop: string }, end?: true, name?: string): IParser<string> {
   return {
     parse(s: string, p: number, res: Success<string>) {
@@ -257,6 +387,16 @@ export function readToDyn(state: { stop: string }, end?: true, name?: string): I
   };
 }
 
+/**
+ * Creates a parser that reads a string of at least one character until encounters
+ * one of the given characters.  The string of stop characters may change from parse
+ * to parse. This can also optionally accept the end of input as a valid stopping point.
+ *
+ * @param state - an object with the list of characters that will end the string
+ * @param end - if `true` will accept the end of input as a valid stopping point
+ *
+ * This will _not_ successfully parse an empty string.
+ */
 export function read1ToDyn(state: { stop: string }, end?: true, name?: string): IParser<string> {
   const op = readToDyn(state, end);
   return {
@@ -269,6 +409,12 @@ export function read1ToDyn(state: { stop: string }, end?: true, name?: string): 
   }
 }
 
+/**
+ * Creates a parser that reads the next `count` characters from input or fails.
+ * This will not advance the position within the input.
+ *
+ * @param count - the number of characters to read
+ */
 export function peek(count: number, name?: string): IParser<string> {
   return {
     parse(s: string, p: number, res: Success<string>) {

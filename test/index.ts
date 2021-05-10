@@ -1,4 +1,4 @@
-import { parser, read, read1, str, readTo, nodeForPosition } from '../src/index';
+import { parser, read, read1, str, readTo, nodeForPosition, isError, name } from '../src/index';
 import { alt, map } from '../src/parsers/base';
 import { repsep } from '../src/parsers/rep';
 import { bracket, seq } from '../src/parsers/seq';
@@ -65,4 +65,36 @@ q.test('parse trim', t => {
   t.equal(typeof p1('  \r\n \t  42  \t', { trim: false }), 'object');
   t.equal(p2('  \r\n \t  42  \t', { trim: true }), 42);
   t.equal(typeof p2('  \r\n \t  42  \t'), 'object');
+});
+
+q.test('parser names', t => {
+  const n = map(seq(str(`'`), readTo(`'`), str(`'`)), ([, text, ]) => {
+    return { v: text };
+  }, 'string');
+
+  const p = parser(n, { detailed: true });
+
+  let res = p(`'test`);
+  if (!isError(res)) {
+    t.notOk(false, 'parser should error');
+  } else {
+    t.equal(res.parser, 'string');
+    t.equal(res.position, 4);
+  }
+});
+
+q.test('naming an unnamed parser', t => {
+  const n = map(seq(str(`'`), name(readTo(`'`), 'string content'), str(`'`)), ([, text, ]) => {
+    return { v: text };
+  }, 'string');
+
+  const p = parser(n, { detailed: true });
+
+  let res = p(`'test`);
+  if (!isError(res)) {
+    t.notOk(false, 'parser should error');
+  } else {
+    t.equal(res.parser, 'string content');
+    t.equal(res.position, 4);
+  }
 });

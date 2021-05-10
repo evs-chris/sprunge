@@ -122,6 +122,14 @@ export function isFailure<T>(result: Result<T>): result is Failure {
 }
 
 /**
+ * Check to see if a ParseFn result was an error
+ * @param result - the result to check
+ */
+export function isError<T>(result: T|ParseError): result is ParseError {
+  return typeof result === 'object' && typeof (result as any).message === 'string' && typeof (result as any).position === 'number';
+}
+
+/**
  * A wrapped parse result that includes each level of parse result returned by
  * a parse tree.
  */

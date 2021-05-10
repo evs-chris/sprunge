@@ -1,6 +1,6 @@
 import {
   alt, chain, chars, map, not, opt, read1, seq, str, verify,
-  Success, getCause,
+  Success, getCause, getLatestCause, detailedErrors,
 } from '../../src/index';
 
 const q = QUnit;
@@ -60,4 +60,18 @@ q.test('map with error', t => {
   t.equal(p.parse('120', 0, success)[0], 120);
   t.equal(p.parse('012', 0, success).length, 0);
   t.equal(getCause()[1], 'cannot start with 0');
+});
+
+q.test('deeper map with error', t => {
+  const detailed = detailedErrors();
+  detailedErrors(1);
+  const p = alt<any>(
+    str('foooo'),
+    map(chars(3, '0123'), (s, e) => s[0] === '0' ? e('cannot start with 0') : +s),
+    seq(str('0'), str('lala')),
+  );
+  t.equal(p.parse('120', 0, success)[0], 120);
+  t.equal(p.parse('012', 0, success).length, 0);
+  t.equal(getLatestCause()[1], 'cannot start with 0');
+  detailedErrors(detailed);
 });

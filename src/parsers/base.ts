@@ -169,7 +169,7 @@ export function map<T, U>(parser: Parser<T>, fn: (t: T, f: (error: string) => vo
         (r as unknown[])[0] = fn(r[0], error);
         const cur = err;
         err = last;
-        if (cur) return fail(p, cur, name);
+        if (cur) return fail(r[1], cur, name);
         if (node) closeNode(node, tree, r);
         return r as any;
       } else {

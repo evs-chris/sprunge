@@ -1,4 +1,4 @@
-import { IParser, Parser, Success, Result, Cause, getCauseCopy, getLatestCause, suggestCauseName, overrideCauseName, fail, detailedFail, unwrap, lazy, ParseNode, openNode, closeNode, shared } from '../base';
+import { IParser, Parser, Success, Result, NodeName, isNodeName, Cause, getCauseCopy, getLatestCause, suggestCauseName, overrideCauseName, fail, detailedFail, unwrap, lazy, ParseNode, openNode, closeNode, shared } from '../base';
 
 /**
  * Creates a parser using the given parser that always succeeds, returning
@@ -6,7 +6,7 @@ import { IParser, Parser, Success, Result, Cause, getCauseCopy, getLatestCause, 
  *
  * @param parser - the parser to apply to the input
  */
-export function opt<T>(parser: Parser<T>, name?: string): IParser<null|T> {
+export function opt<T>(parser: Parser<T>, name?: NodeName): IParser<null|T> {
   let ps: IParser<T>;
   return lazy(
     () => ps = unwrap(parser),
@@ -59,13 +59,13 @@ export function alt<T>(...parsers: Array<Parser<T>>): IParser<T>;
  * @param name - the name to use for detailed error messages
  * @param parsers - the list of parsers to apply to the input
  */
-export function alt<T>(name: string, ...parsers: Array<Parser<T>>): IParser<T>;
+export function alt<T>(name: NodeName, ...parsers: Array<Parser<T>>): IParser<T>;
 /**
  * The underlying implementation for `alt(name, ...)` and `alt(...)`.
  */
-export function alt<T>(name?: string|Parser<T>, ...parsers: Array<Parser<T>>): IParser<T> {
-  const nm = typeof name === 'string' ? name : undefined;
-  const lps: Array<Parser<T>> = typeof name === 'string' ? parsers : (name ? [name] : []).concat(parsers);
+export function alt<T>(name: NodeName|Parser<T>, ...parsers: Array<Parser<T>>): IParser<T> {
+  const nm = isNodeName(name) ? name : undefined;
+  const lps: Array<Parser<T>> = isNodeName(name) ? parsers : (name ? [name] : []).concat(parsers);
   let ps: Array<IParser<T>>;
   const len = lps.length;
   return lazy(
@@ -85,7 +85,7 @@ export function alt<T>(name?: string|Parser<T>, ...parsers: Array<Parser<T>>): I
         if (fails.length && fails.map(f => f[0]).reduce((a, c) => a + c, 0) === fails[0][0] * fails.length) cause[2] = nm;
         return fail(cause[0], cause[1], cause[2] || nm, cause[3], cause[4]);
       } else {
-        if (detailedFail & 1 && getLatestCause()[0] === p && nm) overrideCauseName(nm);
+        if (detailedFail & 1 && getLatestCause()[0] === p && nm) overrideCauseName(nm && ((nm as any).name || nm));
         return fail(p, detailedFail & 1 && `expected ${nm || 'alternate'}`, nm);
       }
     }
@@ -100,7 +100,7 @@ export function alt<T>(name?: string|Parser<T>, ...parsers: Array<Parser<T>>): I
  * @param parser - the initial parser to apply
  * @param match - the matcher function applied to the result of the first
  */
-export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>, name?: string): IParser<U> {
+export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>, name?: NodeName): IParser<U> {
   let ps: IParser<T>;
   return lazy(
     () => ps = unwrap(parser),
@@ -128,7 +128,7 @@ export function chain<T, U>(parser: Parser<T>, select: (t: T) => IParser<U>, nam
  * @param parser - the nested parser to apply
  * @param verify - the verification function to apply
  */
-export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string, name?: string): IParser<T> {
+export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string, name?: NodeName): IParser<T> {
   let ps: IParser<T>;
   return lazy(
     () => ps = unwrap(parser),
@@ -153,7 +153,7 @@ export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string, name
  * @param parser - the parser to apply
  * @param fn - the transformer to apply to the result
  */
-export function map<T, U>(parser: Parser<T>, fn: (t: T, f: (error: string) => void) => U, name?: string): IParser<U> {
+export function map<T, U>(parser: Parser<T>, fn: (t: T, f: (error: string) => void) => U, name?: NodeName): IParser<U> {
   let ps: IParser<T>;
   let err: string;
   const none = '';
@@ -173,7 +173,7 @@ export function map<T, U>(parser: Parser<T>, fn: (t: T, f: (error: string) => vo
         if (node) closeNode(node, tree, r);
         return r as any;
       } else {
-        suggestCauseName(name);
+        suggestCauseName(name && ((name as any).name || name));
         return r as any;
       }
     }
@@ -188,7 +188,7 @@ shared.map = map;
  * @param parser - the nested parser
  * @param name = an optional name for context
  */
-export function debug<T>(parser: Parser<T>, name?: string): IParser<T> {
+export function debug<T>(parser: Parser<T>, name?: NodeName): IParser<T> {
   let ps: IParser<T>;
   return lazy(
     () => ps = unwrap(parser),

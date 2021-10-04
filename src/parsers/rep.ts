@@ -1,4 +1,4 @@
-import { Parser, IParser, Success, Result, fail, detailedFail, getCause, getCauseCopy, unwrap, lazy, ParseNode, openNode, closeNode } from '../base';
+import { Parser, IParser, Success, Result, fail, detailedFail, getCause, getCauseCopy, unwrap, lazy, ParseNode, openNode, closeNode, NodeName } from '../base';
 
 /**
  * Creates a parser that applies the given parser until it fails, producing
@@ -8,7 +8,7 @@ import { Parser, IParser, Success, Result, fail, detailedFail, getCause, getCaus
  *
  * This will successfully parse an empty array.
  */
-export function rep<T>(parser: Parser<T>, name?: string): IParser<T[]> {
+export function rep<T>(parser: Parser<T>, name?: NodeName): IParser<T[]> {
   let ps: IParser<T>;
   const empty: T[] = [];
   return lazy(
@@ -56,7 +56,7 @@ export function rep<T>(parser: Parser<T>, name?: string): IParser<T[]> {
  *
  * This will _not_ successfully parse an empty array.
  */
-export function rep1<T>(parser: Parser<T>, name?: string): IParser<T[]> {
+export function rep1<T>(parser: Parser<T>, name?: NodeName): IParser<T[]> {
   let ps: IParser<T>;
   return lazy(
     () => ps = unwrap(parser),
@@ -103,7 +103,7 @@ export function rep1<T>(parser: Parser<T>, name?: string): IParser<T[]> {
  *
  * This will successfully parse an empty array.
  */
-export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'disallow'|'require' = 'disallow', name?: string): IParser<T[]> {
+export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'disallow'|'require' = 'disallow', name?: NodeName): IParser<T[]> {
   let ps1: IParser<T>;
   let ps2: IParser<any>;
   const empty: T[] = [];
@@ -184,7 +184,7 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
  *
  * This will _not_ successfully parse an empty array.
  */
-export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'disallow'|'require' = 'disallow', name?: string): IParser<T[]> {
+export function rep1sep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'disallow'|'require' = 'disallow', name?: NodeName): IParser<T[]> {
   let ps1: IParser<T>;
   let ps2: IParser<any>;
   return lazy(

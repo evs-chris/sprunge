@@ -12,7 +12,7 @@ export type Success<T> = [T, number, Cause?];
  * This is a tuple of the position in the input and an error message. These
  * should only be produced when `detailedErrors()` returns `true`.
  */
-export type Cause = [number, string, string?, Cause?, Cause[]?];
+export type Cause = [number, string, NodeName?, Cause?, Cause[]?];
 
 /**
  * Failure is signified by an empty array, but you should only ever return
@@ -48,8 +48,8 @@ export function getCause(): Cause { return _cause; }
  * to hold on to for as long as you need, and should probably be gated
  * behind a check for detailedErrors().
  */
-export function getCauseCopy(name?: string): Cause {
-  suggestCauseName(name);
+export function getCauseCopy(name?: NodeName): Cause {
+  suggestCauseName(name ? (name as any).name || name : undefined);
   return _cause.slice() as Cause; 
 }
 
@@ -87,7 +87,7 @@ export function overrideCauseName(name?: string) {
  * @param message - the optional failure message
  * @param causes - an optional array of inner causes
  */
-export function fail(pos: number, message: false|string, name?: string, cause?: Cause, causes?: Cause[]): Failure {
+export function fail(pos: number, message: false|string, name?: NodeName, cause?: Cause, causes?: Cause[]): Failure {
   _cause[0] = pos;
   _cause[1] = message || '';
   _cause[2] = name;
@@ -129,13 +129,22 @@ export function isError<T>(result: T|ParseError): result is ParseError {
   return typeof result === 'object' && typeof (result as any).message === 'string' && typeof (result as any).position === 'number';
 }
 
+export type NodeName = string | { primary?: boolean; name: string };
+
+/**
+ * Checks whether the given value is a NodeName.
+ */
+export function isNodeName(v: any): v is NodeName {
+  return typeof v === 'string' || (v && 'name' in v && typeof v.name === 'string');
+}
+
 /**
  * A wrapped parse result that includes each level of parse result returned by
  * a parse tree.
  */
 export interface ParseNode {
   /** The optional name of the parser that produced this result. */
-  name?: string;
+  name?: NodeName;
   /** The optional result of the parser. */
   result?: any;
   /** The starting position in the source string for this result. */
@@ -144,6 +153,8 @@ export interface ParseNode {
   end: number;
   /** Any child parser matches that contributed to this result. */
   children: ParseNode[];
+  /** If there are gaps between matched pieces, they're listed by index in this map. */
+  extra?: { [idx: number]: [number, number] };
 }
 
 /**
@@ -152,7 +163,7 @@ export interface ParseNode {
  * @param start - the starting point for the parse
  * @param name - an optional name for the parser
  */
-export function openNode(start: number, name?: string): ParseNode {
+export function openNode(start: number, name?: NodeName): ParseNode {
   return { start, end: start, children: [], name };
 }
 
@@ -166,8 +177,34 @@ export function openNode(start: number, name?: string): ParseNode {
  */
 export function closeNode(node: ParseNode, parent: ParseNode, res: Success<any>) {
   node.end = res[1];
+  if (_compact && node.end === node.start) return;
   node.result = res[0];
-  parent && parent.children.push(node);
+
+  if (!parent) {
+    node.children.reduce((last, c, i) => {
+      if (last < c.start) (node.extra || (node.extra = {}))[i] = [last, c.start];
+      return c.end;
+    }, node.start);
+    const l = node.children[node.children.length - 1];
+    if (l && node.end > l.end) (node.extra || (node.extra = {}))[node.children.length] = [l.end, node.end];
+  } else if (_compact) {
+    if (node.name && (node.name as any).primary) {
+      const c = node.children[0];
+      if (node.children.length === 1 && c.start === node.start && c.end === node.end) parent.children.push(c);
+      else {
+        node.name = (node.name as any).name;
+        node.children.reduce((last, c, i) => {
+          if (last < c.start) (node.extra || (node.extra = {}))[i] = [last, c.start];
+          return c.end;
+        }, node.start);
+        const l = node.children[node.children.length - 1];
+        if (l && node.end > l.end) (node.extra || (node.extra = {}))[node.children.length] = [l.end, node.end];
+        parent.children.push(node);
+      }
+    } else if (node.children.length) {
+      parent.children.push.apply(parent.children, node.children);
+    }
+  } else parent.children.push(node);
 }
 
 /**
@@ -296,7 +333,10 @@ export interface ParseErrorOptions extends ParseBaseOptions {
  * Options for producing a parse node from a ParseFn.
  */
 export interface ParseTreeOptions extends ParseErrorOptions {
+  /** Build a parse tree along with the parsed result */
   tree?: boolean;
+  /** Leave out empty tree nodes and collpase shell branches that only contain a single child that matches exactly the whole branch */
+  compact?: boolean;
 }
 
 /**
@@ -362,7 +402,7 @@ export function getParseError(cause: Cause, input: string, context: number): Par
     marked: `${lines.slice(0, markerOffset).join('\n')}\n${marker}\n${lines.slice(markerOffset).join('\n')}`,
     cause: cause[3] && getParseError(cause[3], input, context),
     causes: cause[4] && cause[4].map(c => getParseError(c, input, context)),
-    parser: cause[2],
+    parser: cause[2] ? (cause[2] as any).name || cause[2] : undefined,
   };
 }
 
@@ -395,6 +435,8 @@ export const shared: {
   map?<A, B>(a: Parser<A>, b: (a: A) => B): Parser<B>;
 } = {};
 
+let _compact: boolean = false;
+
 /**
  * Wraps a parser in a ParseFn.
  *
@@ -416,6 +458,7 @@ export function parser<T>(parser: Parser<T>, error?: ParseOptions): ParseFn<T> {
     if (d & 1) resetLatestCause();
 
     const node = (error && 'tree' in error && error.tree) && openNode(0);
+    _compact = node && (error && 'compact' in error ? error.compact : oerror && 'compact' in oerror ? oerror.compact : false) === true;
     if (d !== detailedFail) {
       const c = detailedFail;
       detailedFail = d;
@@ -442,7 +485,7 @@ export function parser<T>(parser: Parser<T>, error?: ParseOptions): ParseFn<T> {
     } else {
       if (node) {
         closeNode(node, null, res);
-        if (trim) {
+        if (!_compact && trim) {
           const n = node.children[0].children[0];
           n.result = res[0];
           return n;

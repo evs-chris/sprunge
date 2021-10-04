@@ -1,4 +1,4 @@
-import { IParser, Parser, Success, Result, Cause, addCause, getCauseCopy, getLatestCause, unwrap, fail, detailedFail, lazy, ParseNode, openNode, closeNode, shared } from '../base';
+import { IParser, Parser, Success, Result, Cause, addCause, getCauseCopy, getLatestCause, unwrap, fail, detailedFail, lazy, ParseNode, openNode, closeNode, shared, NodeName, isNodeName } from '../base';
 
 /**
  * Creates a parser that parses bracketed content, ignoring the brackets in
@@ -8,7 +8,7 @@ import { IParser, Parser, Success, Result, Cause, addCause, getCauseCopy, getLat
  * @param content - the primary content parser
  * @param right - the right bracket parser
  */
-export function bracket<T>(left: Parser<any>, content: Parser<T>, right: Parser<any>, name?: string): IParser<T>
+export function bracket<T>(left: Parser<any>, content: Parser<T>, right: Parser<any>, name?: NodeName): IParser<T>
 /**
  * Creates a parser that parses bracketed content, ignoring the brackets in
  * the result. The first bracket that matches at the front must also match
@@ -17,13 +17,13 @@ export function bracket<T>(left: Parser<any>, content: Parser<T>, right: Parser<
  * @param ends - a list of possible bracket parsers
  * @param content - the content parser
  */
-export function bracket<T>(ends: Array<Parser<any>>, content: Parser<T>, name?: string): IParser<T>;
+export function bracket<T>(ends: Array<Parser<any>>, content: Parser<T>, name?: NodeName): IParser<T>;
 
 /**
  * The underlying implementation for bracket overloads.
  */
-export function bracket<T>(first: Array<Parser<any>>|Parser<any>, content: Parser<T>, right?: string|Parser<any>, name?: string): IParser<T> {
-  const nm = typeof right === 'string' ? right : typeof name === 'string' ? name : undefined;
+export function bracket<T>(first: Array<Parser<any>>|Parser<any>, content: Parser<T>, right?: NodeName|Parser<any>, name?: NodeName): IParser<T> {
+  const nm = isNodeName(right) ? right : isNodeName(name) ? name : undefined;
   if (Array.isArray(first)) { // mirrored options
     let ends: IParser<any>[];
     let ps: IParser<T>;
@@ -54,7 +54,7 @@ export function bracket<T>(first: Array<Parser<any>>|Parser<any>, content: Parse
         return resin;
       }
     );
-  } else if (typeof right !== 'string') { // individual start and end bracket parsers
+  } else if (!isNodeName(right)) { // individual start and end bracket parsers
     let ps1: IParser<any>;
     let ps2: IParser<T>;
     let ps3: IParser<any>;
@@ -267,7 +267,7 @@ export function check(name: string|Parser<any>, ...parsers: Array<Parser<any>>):
  * @param parser - the parser to match
  * @param not - the parser that must not match
  */
-export function andNot<T>(parser: Parser<T>, not: Parser<any>, name?: string): IParser<T> {
+export function andNot<T>(parser: Parser<T>, not: Parser<any>, name?: NodeName): IParser<T> {
   let ps: IParser<T>;
   let np: IParser<any>;
   return lazy(

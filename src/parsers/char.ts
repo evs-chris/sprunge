@@ -1,5 +1,5 @@
 import { getSearch, SearchFn } from '../search';
-import { IParser, Success, fail, detailedFail, shared } from '../base';
+import { IParser, Success, fail, detailedFail, shared, NodeName } from '../base';
 
 /**
  * Returns a sorted unique list of characters from the input list.
@@ -78,7 +78,7 @@ shared.skip = skip;
  * `chars` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function iskip(chars: string, name?: string): IParser<''> {
+export function iskip(chars: string, name?: NodeName): IParser<''> {
   return skip(chars.toUpperCase() + chars.toLowerCase());
 }
 
@@ -90,7 +90,7 @@ export function iskip(chars: string, name?: string): IParser<''> {
  * `chars` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function skip1(chars: string, name?: string): IParser<''> {
+export function skip1(chars: string, name?: NodeName): IParser<''> {
   const sorted = charList(chars);
   const contains = getSearch(sorted);
   return {
@@ -110,7 +110,7 @@ export function skip1(chars: string, name?: string): IParser<''> {
  * `chars` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function iskip1(chars: string, name?: string): IParser<''> {
+export function iskip1(chars: string, name?: NodeName): IParser<''> {
   return skip1(chars.toUpperCase() + chars.toLowerCase(), name);
 }
 
@@ -162,7 +162,7 @@ export function iread(chars: string): IParser<string> {
  * `chars` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function read1(chars: string, name?: string): IParser<string> {
+export function read1(chars: string, name?: NodeName): IParser<string> {
   const sorted = charList(chars);
   const contains = getSearch(sorted);
   return {
@@ -187,7 +187,7 @@ export function read1(chars: string, name?: string): IParser<string> {
  * `chars` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function iread1(chars: string, name?: string): IParser<string> {
+export function iread1(chars: string, name?: NodeName): IParser<string> {
   return read1(chars.toUpperCase() + chars.toLowerCase(), name);
 }
 
@@ -202,7 +202,7 @@ export function iread1(chars: string, name?: string): IParser<string> {
  * `allowed` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function chars(count: number, allowed?: string, name?: string): IParser<string> {
+export function chars(count: number, allowed?: string, name?: NodeName): IParser<string> {
   const sorted = allowed && charList(allowed);
   const search = getSearch(sorted || '');
   return {
@@ -231,7 +231,7 @@ export function chars(count: number, allowed?: string, name?: string): IParser<s
  * `allowed` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function ichars(count: number, allowed?: string, name?: string): IParser<string> {
+export function ichars(count: number, allowed?: string, name?: NodeName): IParser<string> {
   return chars(count, allowed && allowed.toUpperCase() + allowed.toLowerCase(), name);
 }
 
@@ -245,7 +245,7 @@ export function ichars(count: number, allowed?: string, name?: string): IParser<
  * `disallowed` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function notchars(count: number, disallowed: string, name?: string): IParser<string> {
+export function notchars(count: number, disallowed: string, name?: NodeName): IParser<string> {
   const sorted = charList(disallowed);
   const search = getSearch(sorted);
   return {
@@ -271,7 +271,7 @@ export function notchars(count: number, disallowed: string, name?: string): IPar
  * `disallowed` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function notichars(count: number, disallowed: string, name?: string): IParser<string> {
+export function notichars(count: number, disallowed: string, name?: NodeName): IParser<string> {
   return notchars(count, disallowed.toUpperCase() + disallowed.toLowerCase(), name);
 }
 
@@ -289,7 +289,7 @@ export function notichars(count: number, disallowed: string, name?: string): IPa
  * `stop` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function readTo(stop: string, end?: true, name?: string): IParser<string> {
+export function readTo(stop: string, end?: true, name?: NodeName): IParser<string> {
   const sorted = charList(stop);
   const contains = getSearch(sorted);
   return {
@@ -317,7 +317,7 @@ export function readTo(stop: string, end?: true, name?: string): IParser<string>
  * `stop` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function ireadTo(stop: string, end?: true, name?: string): IParser<string> {
+export function ireadTo(stop: string, end?: true, name?: NodeName): IParser<string> {
   return readTo(stop.toUpperCase() + stop.toLowerCase(), end, name);
 }
 
@@ -335,7 +335,7 @@ export function ireadTo(stop: string, end?: true, name?: string): IParser<string
  * `stop` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function read1To(stop: string, end?: true, name?: string): IParser<string> {
+export function read1To(stop: string, end?: true, name?: NodeName): IParser<string> {
   const op = readTo(stop, end);
   return {
     parse(s: string, p: number, resin: Success<string>) {
@@ -361,7 +361,7 @@ export function read1To(stop: string, end?: true, name?: string): IParser<string
  * `stop` will be sorted for use in the returned parser to work with a
  * somewhat faster binary search.
  */
-export function iread1To(stop: string, end?: true, name?: string): IParser<string> {
+export function iread1To(stop: string, end?: true, name?: NodeName): IParser<string> {
   return read1To(stop.toUpperCase() + stop.toLowerCase(), end, name);
 }
 
@@ -375,7 +375,7 @@ export function iread1To(stop: string, end?: true, name?: string): IParser<strin
  *
  * This will successfully parse an empty string.
  */
-export function readToDyn(state: { stop: string }, end?: true, name?: string): IParser<string> {
+export function readToDyn(state: { stop: string }, end?: true, name?: NodeName): IParser<string> {
   return {
     parse(s: string, p: number, res: Success<string>) {
       const skipped = seekUntilChar(s, p, state.stop, getSearch(state.stop, false));
@@ -397,7 +397,7 @@ export function readToDyn(state: { stop: string }, end?: true, name?: string): I
  *
  * This will _not_ successfully parse an empty string.
  */
-export function read1ToDyn(state: { stop: string }, end?: true, name?: string): IParser<string> {
+export function read1ToDyn(state: { stop: string }, end?: true, name?: NodeName): IParser<string> {
   const op = readToDyn(state, end);
   return {
     parse(s: string, p: number, res: Success<string>) {
@@ -415,7 +415,7 @@ export function read1ToDyn(state: { stop: string }, end?: true, name?: string): 
  *
  * @param count - the number of characters to read
  */
-export function peek(count: number, name?: string): IParser<string> {
+export function peek(count: number, name?: NodeName): IParser<string> {
   return {
     parse(s: string, p: number, res: Success<string>) {
       const r = s.substr(p, count);

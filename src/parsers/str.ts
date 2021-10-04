@@ -1,4 +1,4 @@
-import { Parser, IParser, Success, fail, detailedFail, unwrap, lazy, ParseNode, openNode, closeNode } from '../base';
+import { Parser, IParser, Success, fail, detailedFail, unwrap, lazy, ParseNode, openNode, closeNode, NodeName } from '../base';
 import { read1 } from './char';
 
 /**
@@ -96,7 +96,7 @@ export function istr(...strings: string[]): IParser<string> {
  *
  * @param parser - the parser used to determine the appropriate substring
  */
-export function outer(parser: Parser<any>, name?: string): IParser<string> {
+export function outer(parser: Parser<any>, name?: NodeName): IParser<string> {
   let ps: IParser<any>;
   return lazy(
     () => ps = unwrap(parser),

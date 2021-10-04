@@ -1,3 +1,11 @@
+## 0.4.0
+
+2021-10-04
+
+### Not bugs
+
+* There is a new parse tree parsing mode `compact` that, when combined with the new ability to specify a parser as `primary` via its name, will result in a much more compact parse tree composed only of primary named nodes. Gaps between primary node children are mapped in an `extra` map on parse nodes that specify start and end position within the source string that are covered by the node but not any of its children.
+
 ## 0.3.1
 
 2021-05-10

@@ -1,6 +1,6 @@
 {
   "name": "sprunge",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "a parser combinator library",
   "main": "./lib/sprunge.umd.js",
   "types": "./lib/index.d.ts",
@@ -24,7 +24,7 @@
   },
   "scripts": {
     "build:code": "tsc -p config/lib.tsconfig.json",
-    "bundle:code": "rollup lib/umd.js --file lib/sprunge.umd.js --format umd --name sprunge",
+    "bundle:code": "rollup lib/umd.js --file lib/sprunge.umd.js --format umd --name sprunge --sourcemap",
     "build": "npm run build:code; npm run bundle:code",
     "clean": "rm -r lib build",
     "build:test": "tsc -p config/test.tsconfig.json",

@@ -327,6 +327,8 @@ export interface ParseErrorOptions extends ParseBaseOptions {
   throw?: boolean;
   /* Produces an error if all of the input is not consumed during parsing. */
   consumeAll?: boolean;
+  /* Return undefined on error */
+  undefinedOnError?: boolean;
 }
 
 /**
@@ -473,6 +475,7 @@ export function parser<T>(parser: Parser<T>, error?: ParseOptions): ParseFn<T> {
     }
 
     if (!res.length) {
+      if (error && 'undefinedOnError' in error ? error.undefinedOnError : oerror && oerror.undefinedOnError) return;
       const cause = getCause();
       const ctx = (error && 'contextLines' in error ? error.contextLines : oerror && oerror.contextLines) || 0;
       const err = getParseError(getLatestCause(cause[4] || [], cause), input, ctx);

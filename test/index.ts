@@ -38,6 +38,15 @@ q.test('wrapper throw', t => {
   t.equal(res, 'abc');
 });
 
+q.test('wrapper undefined', t => {
+  const p = parser(read1('abc'), { undefinedOnError: true, trim: true, consumeAll: true });
+  let res = p('abcd');
+  t.ok(res === undefined);
+  res = p('abc');
+  t.ok(typeof res === 'string');
+  t.equal(res, 'abc');
+});
+
 q.test('parse tree', t => {
   const n = map(read1('0123456789'), n => +n, 'number');
   const s = bracket(str('"'), readTo('"'), str('"'), 'string');

@@ -1,3 +1,11 @@
+## 0.4.1
+
+2021-11-11
+
+### Not bugs
+
+* There is a new parsing mode `undefinedOnError` that simply returns undefined when parsing fails rather than cause information. This is particularly useful if you don't care about the result of a parse and only want to easily see if it produced a result, as you don't have to distinguish between a cause object and legitimate output.
+
 ## 0.4.0
 
 2021-10-04

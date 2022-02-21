@@ -1,5 +1,5 @@
-import { Parser, IParser, Success, fail, detailedFail, unwrap, lazy, ParseNode, openNode, closeNode, NodeName } from '../base';
-import { read1 } from './char';
+import { Parser, IParser, Success, Result, fail, detailedFail, unwrap, lazy, ParseNode, openNode, closeNode, NodeName } from '../base';
+import { read1, readTo } from './char';
 
 /**
  * Creates a parser that reads one of the given strings.
@@ -105,6 +105,75 @@ export function outer(parser: Parser<any>, name?: NodeName): IParser<string> {
       res = ps.parse(s, p, res, node) as any;
       if (!res.length) return res;
       res[0] = s.substring(p, res[1]);
+      if (node) closeNode(node, tree, res);
+      return res;
+    }
+  );
+}
+
+/**
+ * Creates a parser that reads a substring until another parser matches. The target parser
+ * is only tried when a given sigil character is reached.
+ * @param chars - the sigil chars to try the parser
+ * @param parser - the parser that signals the end of the match
+ */
+export function readToParser(chars: string, parser: Parser<any>, name?: NodeName): IParser<string> {
+  let ps: IParser<any>;
+  const stop = readTo(chars, true);
+  return lazy(
+    () => ps = unwrap(parser),
+    function parse(s: string, p: number, res: Success<string>, tree?: ParseNode) {
+      const node = tree && openNode(p, name);
+      const len = s.length;
+      let l = p;
+      let sub: Result<any>;
+      while (l < len) {
+        sub = stop.parse(s, l, res);
+        l = sub[1];
+        sub = ps.parse(s, l, res);
+        if (!sub.length) {
+          l++;
+        } else {
+          break;
+        }
+      }
+      res[0] = s.substring(p, l);
+      res[1] = l;
+      if (node) closeNode(node, tree, res);
+      return res;
+    }
+  );
+}
+
+/**
+ * Creates a parser that reads a string of at least one character until another parser matches. The target
+ * parser is only tried when a given sigil character is reached.
+ * @param chars - the sigil chars to try the parser
+ * @param parser - the parser that signals the end of the match
+ */
+export function read1ToParser(chars: string, parser: Parser<any>, name?: NodeName): IParser<string> {
+  let ps: IParser<any>;
+  const stop = readTo(chars, true);
+  return lazy(
+    () => ps = unwrap(parser),
+    function parse(s: string, p: number, res: Success<string>, tree?: ParseNode) {
+      const node = tree && openNode(p, name);
+      const len = s.length;
+      let l = p;
+      let sub: Result<any>;
+      while (l < len) {
+        sub = stop.parse(s, l, res);
+        l = sub[1];
+        sub = ps.parse(s, l, res);
+        if (!sub.length) {
+          l++;
+        } else {
+          break;
+        }
+      }
+      if (l === p) return fail(p, detailedFail & 1 && `expected at least one character`, name);
+      res[0] = s.substring(p, l);
+      res[1] = l;
       if (node) closeNode(node, tree, res);
       return res;
     }

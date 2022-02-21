@@ -82,82 +82,16 @@ export function bracket<T>(first: Array<Parser<any>>|Parser<any>, content: Parse
   }
 }
 
-// this is a whole ball of meh
+
+type ExtractParserTypes<T> = {
+  [P in keyof T] : T[P] extends Parser<infer U> ? U : never
+}
 
 /**
  * Creates a parser that applies the given parsers in sequence. If one fails,
  * the created parser will also fail. The results are returned as a tuple.
  */
-export function seq<A, B>(p1: Parser<A>, p2: Parser<B>): IParser<[A, B]>;
-/**
- * Creates a parser that applies the given parsers in sequence. If one fails,
- * the created parser will also fail. The results are returned as a tuple.
- */
-export function seq<A, B, C>(p1: Parser<A>, p2: Parser<B>, p3: Parser<C>): IParser<[A, B, C]>;
-/**
- * Creates a parser that applies the given parsers in sequence. If one fails,
- * the created parser will also fail. The results are returned as a tuple.
- */
-export function seq<A, B, C, D>(p1: Parser<A>, p2: Parser<B>, p3: Parser<C>, p4: Parser<D>): IParser<[A, B, C, D]>;
-/**
- * Creates a parser that applies the given parsers in sequence. If one fails,
- * the created parser will also fail. The results are returned as a tuple.
- */
-export function seq<A, B, C, D, E>(p1: Parser<A>, p2: Parser<B>, p3: Parser<C>, p4: Parser<D>, p5: Parser<E>): IParser<[A, B, C, D, E]>;
-/**
- * Creates a parser that applies the given parsers in sequence. If one fails,
- * the created parser will also fail. The results are returned as a tuple.
- */
-export function seq<A, B, C, D, E, F>(p1: Parser<A>, p2: Parser<B>, p3: Parser<C>, p4: Parser<D>, p5: Parser<E>, p6: Parser<F>): IParser<[A, B, C, D, E, F]>;
-/**
- * Creates a parser that applies the given parsers in sequence. If one fails,
- * the created parser will also fail. The results are returned as a tuple.
- */
-export function seq<A, B, C, D, E, F, G>(p1: Parser<A>, p2: Parser<B>, p3: Parser<C>, p4: Parser<D>, p5: Parser<E>, p6: Parser<F>, p7: Parser<G>): IParser<[A, B, C, D, E, F, G]>;
-/**
- * Creates a parser that applies the given parsers in sequence. If one fails,
- * the created parser will also fail. The results are returned as a tuple.
- */
-export function seq<A, B, C, D, E, F, G, H>(p1: Parser<A>, p2: Parser<B>, p3: Parser<C>, p4: Parser<D>, p5: Parser<E>, p6: Parser<F>, p7: Parser<G>, p8: Parser<H>): IParser<[A, B, C, D, E, F, G, H]>;
-/**
- * Creates a parser that applies the given parsers in sequence. If one fails,
- * the created parser will also fail. The results are returned as a tuple.
- */
-export function seq<A, B, C, D, E, F, G, H, I>(p1: Parser<A>, p2: Parser<B>, p3: Parser<C>, p4: Parser<D>, p5: Parser<E>, p6: Parser<F>, p7: Parser<G>, p8: Parser<H>, p9: Parser<I>): IParser<[A, B, C, C, E, F, G, H, I]>;
-/**
- * Creates a parser that applies the given parsers in sequence. If one fails,
- * the created parser will also fail. The results are returned as a tuple.
- */
-export function seq<A, B, C, D, E, F, G, H, I, J>(p1: Parser<A>, p2: Parser<B>, p3: Parser<C>, p4: Parser<D>, p5: Parser<E>, p6: Parser<F>, p7: Parser<G>, p8: Parser<H>, p9: Parser<I>, p10: Parser<J>): IParser<[A, B, C, D, E, F, G, H, I, J]>;
-/**
- * Creates a parser that applies the given parsers in sequence. If one fails,
- * the created parser will also fail. The results are returned as a tuple.
- */
-export function seq<A, B, C, D, E, F, G, H, I, J, K>(p1: Parser<A>, p2: Parser<B>, p3: Parser<C>, p4: Parser<D>, p5: Parser<E>, p6: Parser<F>, p7: Parser<G>, p8: Parser<H>, p9: Parser<I>, p10: Parser<J>, p11: Parser<K>): IParser<[A, B, C, D, E, F, G, H, I, J, K]>;
-/**
- * Creates a parser that applies the given parsers in sequence. If one fails,
- * the created parser will also fail. The results are returned as a tuple.
- */
-export function seq<A, B, C, D, E, F, G, H, I, J, K, L>(p1: Parser<A>, p2: Parser<B>, p3: Parser<C>, p4: Parser<D>, p5: Parser<E>, p6: Parser<F>, p7: Parser<G>, p8: Parser<H>, p9: Parser<I>, p10: Parser<J>, p11: Parser<K>, p12: Parser<L>): IParser<[A, B, C, D, E, F, G, H, I, J, K, L]>;
-/**
- * Creates a parser that applies the given parsers in sequence. If one fails,
- * the created parser will also fail. The results are returned as a tuple.
- */
-export function seq<A, B, C, D, E, F, G, H, I, J, K, L, M>(p1: Parser<A>, p2: Parser<B>, p3: Parser<C>, p4: Parser<D>, p5: Parser<E>, p6: Parser<F>, p7: Parser<G>, p8: Parser<H>, p9: Parser<I>, p10: Parser<J>, p11: Parser<K>, p12: Parser<L>, p13: Parser<M>): IParser<[A, B, C, D, E, F, G, H, I, J, K, L, M]>;
-/**
- * Creates a parser that applies the given parsers in sequence. If one fails,
- * the created parser will also fail. The results are returned as a tuple.
- */
-export function seq<A, B, C, D, E, F, G, H, I, J, K, L, M, N>(p1: Parser<A>, p2: Parser<B>, p3: Parser<C>, p4: Parser<D>, p5: Parser<E>, p6: Parser<F>, p7: Parser<G>, p8: Parser<H>, p9: Parser<I>, p10: Parser<J>, p11: Parser<K>, p12: Parser<L>, p13: Parser<M>, p14: Parser<N>): IParser<[A, B, C, D, E, F, G, H, I, J, K, L, M, N]>;
-/**
- * Creates a parser that applies the given parsers in sequence. If one fails,
- * the created parser will also fail. The results are returned as a tuple.
- */
-export function seq<A, B, C, D, E, F, G, H, I, J, K, L, M, N, O>(p1: Parser<A>, p2: Parser<B>, p3: Parser<C>, p4: Parser<D>, p5: Parser<E>, p6: Parser<F>, p7: Parser<G>, p8: Parser<H>, p9: Parser<I>, p10: Parser<J>, p11: Parser<K>, p12: Parser<L>, p13: Parser<M>, p14: Parser<N>, p15: Parser<O>): IParser<[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O]>;
-/**
- * The underlying implementation for the various arities of `seq`.
- */
-export function seq(...parsers: Array<Parser<any>>): IParser<any[]> {
+export function seq<U extends Parser<any>[]>(...parsers: U): IParser<ExtractParserTypes<U>> {
   let ps: Array<IParser<any>>;
   const len = parsers.length;
   return lazy(

@@ -75,3 +75,15 @@ q.test('deeper map with error', t => {
   t.equal(getLatestCause()[1], 'cannot start with 0');
   detailedErrors(detailed);
 });
+
+q.test('map with a seq tuple', t => {
+  const p = map(seq(
+    read1('abcdefg'),
+    map(read1('0123456789'), s => +s),
+    read1('zyxwvut'),
+  ), ([str1, num, str2]) => {
+    return `${str2[0]}:${num * 2}:${str1[0]}`;
+  });
+
+  t.equal(p.parse('aedf20zzy', 0, success)[0], 'z:40:a');
+});

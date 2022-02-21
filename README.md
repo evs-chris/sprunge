@@ -121,6 +121,8 @@ Here's the list of built-ins for sprunging:
 | `read1To` | stop: `string`, end?: `true` | like `readTo`, but must match at least one character | yes |
 | `readToDyn` | state: `{ stop: string }`, end?: `true` | like `readTo`, but the target stop characters can change after the parser is created | yes |
 | `read1ToDyn` | state: `{ stop: string }`, end?: `true` | like `readToDyn`, but must match at least one character | yes |
+| `readToParser` | chars: `string`, parser: `Parser`| reads characters in the input until one of the characters in `chars` is encountered, then tries the given `parser`; if the parser succeeds, the matching string up to that point is returned, otherwise reading continues | no |
+| `read1ToParser` | chars: `string`, parser: `Parser`| like `readToParser`, but requires at least one character to match | yes |
 | `opt` | `Parser` | if the given parser succeeds, that result will be passed through, otherwise, `opt` will succeed with a `null` result | no |
 | `alt` | `...Parser[]` | applies the given parsers in order until one succeeds, and if none succeed, `alt` will fail | yes |
 | `verify` | `Parser`, verify function | if the given parser succeeds, its result is passed to the verify function, which can pass or fail the `verify` based on its result - `true` to pass or a `string` to fail | yes |

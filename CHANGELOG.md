@@ -1,3 +1,12 @@
+## 0.4.2
+
+2022-02-21
+
+### Not Bugs
+
+* The `seq` combinator type signature now uses type extraction to avoid having `N` defintions for `N` arities.
+* There is a new pair of combinators, `readToParser` and `readt1ToParser`, that will read to the first character in a set of given characters and try the given parser. If it succeeds, the reading will stop, and if it fails, the reading will continue. The `1` version requires at least 1 character to be read.
+
 ## 0.4.1
 
 2021-11-11

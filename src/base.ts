@@ -450,7 +450,7 @@ export function parser<T>(parser: Parser<T>, error?: ParseOptions): ParseFn<T> {
   const oerror = error;
   const det = (error ? (error.detailed ? 1 : 0) + (error.causes ? 2 : 0) : 0) as DetailedFail;
   const consume = error && error.consumeAll;
-  return function parse(input: string, error?: ParseOptions) {
+  const res = function parse(input: string, error?: ParseOptions) {
     const trim = error && 'trim' in error ? error.trim : oerror && oerror.trim;
     const start = trim ? startSpace.exec(input)[0].length : 0;
     if (trim) parser = shared.map(shared.seq(parser, shared.skip(' \t\r\n')), ([a]) => a);
@@ -498,6 +498,8 @@ export function parser<T>(parser: Parser<T>, error?: ParseOptions): ParseFn<T> {
       return res[0];
     }
   } as ParseFn<T>;
+  (res as any).parser = parser;
+  return res;
 }
 
 /**

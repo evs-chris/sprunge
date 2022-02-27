@@ -87,17 +87,22 @@ type ExtractParserTypes<T> = {
   [P in keyof T] : T[P] extends Parser<infer U> ? U : never
 }
 
+export function seq<U extends Parser<any>[]>(name: string, ...parsers: U): IParser<ExtractParserTypes<U>>;
+export function seq<U extends Parser<any>[]>(...parsers: U): IParser<ExtractParserTypes<U>>;
 /**
  * Creates a parser that applies the given parsers in sequence. If one fails,
  * the created parser will also fail. The results are returned as a tuple.
  */
-export function seq<U extends Parser<any>[]>(...parsers: U): IParser<ExtractParserTypes<U>> {
+export function seq<V extends Parser<any>, U extends V[]>(name: string|V, ...parsers: U): IParser<ExtractParserTypes<U>> {
+  let nm: string;
+  if (typeof name !== 'string') parsers.unshift(name);
+  else nm = name;
   let ps: Array<IParser<any>>;
   const len = parsers.length;
   return lazy(
     () => ps = parsers.map(unwrap),
     function parse(s: string, p: number, resin: Success<any[]>, tree?: ParseNode) {
-      const node = tree && openNode(p);
+      const node = tree && openNode(p, nm);
       let res: any[];
       let c = p;
       let causes: Cause[];
@@ -107,7 +112,7 @@ export function seq<U extends Parser<any>[]>(...parsers: U): IParser<ExtractPars
       r = ps[0].parse(s, c, resin as any, node);
       if (!r.length) {
         if (detailedFail & 2) {
-          const cause = getLatestCause(causes, getCauseCopy());
+          const cause = getLatestCause(causes, getCauseCopy(nm));
           return fail(cause[0], cause[1], cause[2], cause[3], cause[4]);
         } else return r;
       } else {
@@ -120,7 +125,7 @@ export function seq<U extends Parser<any>[]>(...parsers: U): IParser<ExtractPars
           r = ps[i].parse(s, c, resin as any, node);
           if (!r.length) {
             if (detailedFail & 2) {
-              const cause = getLatestCause(causes, getCauseCopy());
+              const cause = getLatestCause(causes, getCauseCopy(nm));
               return fail(cause[0], cause[1], cause[2], cause[3], cause[4]);
             } else return r;
           } else {
@@ -140,7 +145,7 @@ export function seq<U extends Parser<any>[]>(...parsers: U): IParser<ExtractPars
   );
 }
 
-shared.seq = seq;
+shared.seq = seq as any;
 
 /**
  * Creates a parser that applies the given parsers in sequence. If one fails,

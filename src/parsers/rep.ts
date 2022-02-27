@@ -21,7 +21,7 @@ export function rep<T>(parser: Parser<T>, name?: NodeName): IParser<T[]> {
 
       // unroll the first pass to avoid weird allocation
       res = ps.parse(s, c, resin as any, node);
-      if (!res.length) {
+      if (!res.length || res[1] === c) {
         resin[0] = empty;
         resin[1] = c;
         if (detailedFail & 2) resin[2] = getCauseCopy(name);
@@ -33,7 +33,7 @@ export function rep<T>(parser: Parser<T>, name?: NodeName): IParser<T[]> {
 
       while (1) {
         res = ps.parse(s, c, resin as any, node);
-        if (res.length) {
+        if (res.length && res[1] !== c) {
           seq.push(res[0]);
           c = res[1];
         } else {
@@ -120,7 +120,7 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
 
       // unroll first iteration to avoid weird allocation
       res = ps1.parse(s, c, resin as any, node);
-      if (res.length) {
+      if (res.length && res[1] !== c) {
         rr = res[0];
         m = c;
         c = res[1];
@@ -145,7 +145,7 @@ export function repsep<T>(parser: Parser<T>, sep: Parser<any>, trail: 'allow'|'d
 
       while (1) {
         res = ps1.parse(s, c, resin as any, node);
-        if (res.length) {
+        if (res.length && res[1] !== c) {
           m = c;
           c = res[1];
           rr = res[0];

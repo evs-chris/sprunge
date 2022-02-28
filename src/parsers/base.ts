@@ -153,7 +153,7 @@ export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string, name
  * @param parser - the parser to apply
  * @param fn - the transformer to apply to the result
  */
-export function map<T, U>(parser: Parser<T>, fn: (t: T, f: (error: string) => void) => U, name?: NodeName): IParser<U> {
+export function map<T, U>(parser: Parser<T>, fn: (t: T, f: (error: string) => void, start: number, end: number) => U, name?: NodeName): IParser<U> {
   let ps: IParser<T>;
   let err: string;
   const none = '';
@@ -166,7 +166,7 @@ export function map<T, U>(parser: Parser<T>, fn: (t: T, f: (error: string) => vo
       if (r.length) {
         const last = err;
         err = none;
-        (r as unknown[])[0] = fn(r[0], error);
+        (r as unknown[])[0] = fn(r[0], error, p, r[1]);
         const cur = err;
         err = last;
         if (cur) return fail(r[1], cur, name);

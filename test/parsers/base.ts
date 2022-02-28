@@ -62,6 +62,14 @@ q.test('map with error', t => {
   t.equal(getCause()[1], 'cannot start with 0');
 });
 
+q.test('map position', t => {
+  const p = map(seq(str('[[['), map(read1('0123456789'), (num, _, s, e) => ({ num: +num, s, e })), str(']]]')), ([, num]) => num);
+  const r = p.parse('[[[42]]]', 0, success);
+  t.equal(r[0].num, 42);
+  t.equal(r[0].s, 3);
+  t.equal(r[0].e, 5);
+});
+
 q.test('deeper map with error', t => {
   const detailed = detailedErrors();
   detailedErrors(1);

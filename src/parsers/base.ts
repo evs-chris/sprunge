@@ -203,7 +203,7 @@ export function debug<T>(parser: Parser<T>, name?: NodeName): IParser<T> {
 /**
  * Wraps the given parser in a name if a parse tree is being produced.
  */
-export function name<T>(parser: Parser<T>, name: string): IParser<T> {
+export function name<T>(parser: Parser<T>, name: NodeName): IParser<T> {
   let ps: IParser<T>;
   return lazy(
     () => ps = unwrap(parser),
@@ -219,11 +219,11 @@ export function name<T>(parser: Parser<T>, name: string): IParser<T> {
             closeNode(node, tree, r);
           }
         }
-        if (detailedFail & 1) suggestCauseName(name);
+        if (detailedFail & 1) suggestCauseName(typeof name === 'string' ? name : name.name);
         return r;
       } else {
         const r = ps.parse(s, p, res);
-        if (!r.length && detailedFail & 1) suggestCauseName(name);
+        if (!r.length && detailedFail & 1) suggestCauseName(typeof name === 'string' ? name : name.name);
         return r;
       }
     }

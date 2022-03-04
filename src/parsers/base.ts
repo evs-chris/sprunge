@@ -134,7 +134,7 @@ export function verify<T>(parser: Parser<T>, verify: (t: T) => true|string, name
     () => ps = unwrap(parser),
     function parse(s: string, p: number, res: Success<T>, tree?: ParseNode) {
       const node = tree && openNode(p, name);
-      const r = ps.parse(s, p, res);
+      const r = ps.parse(s, p, res, node);
       if (!r.length) return r;
       const v = verify(r[0]);
       if (v === true) {
@@ -210,7 +210,7 @@ export function name<T>(parser: Parser<T>, name: NodeName): IParser<T> {
     function parse(s: string, p: number, res: Success<T>, tree?: ParseNode): Result<T> {
       if (tree) {
         const node = openNode(p, name);
-        const r = ps.parse(s, p, res);
+        const r = ps.parse(s, p, res, node);
         if (r.length) {
           if (node.children.length) {
             node.children[0].name = name;

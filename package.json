@@ -1,6 +1,6 @@
 {
   "name": "sprunge",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "a parser combinator library",
   "main": "./lib/sprunge.umd.js",
   "types": "./lib/index.d.ts",

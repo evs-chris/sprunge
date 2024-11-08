@@ -536,6 +536,21 @@ export function lazy<T>(init: () => void, parse: (s: string, p: number, r: Succe
   return res;
 }
 
+/**
+ * A noop parser that always consumes no input and results in a successful
+ * empty string parse result. This is useful for alternation of sequences
+ * where some portion of the sequence needs to be omitted but still match
+ * the signature of other sequence alternates. WARNING: this will result in
+ * non-termination if used in a repetition that will not otherwise consume input
+ */
+export const nop: IParser<string> = {
+  parse(_s: string, p: number, r: Success<string>): Result<string> {
+    r[0] = '';
+    r[1] = p;
+    return r;
+  }
+}
+
 export function concat(strings: string[]): string {
   let res = '';
   const len = strings.length;

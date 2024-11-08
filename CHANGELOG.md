@@ -1,3 +1,41 @@
+## 0.5.2
+
+2024-11-08
+
+### Bugs
+
+* The csv parser will no longer try to read a header from a result with no rows.
+
+### Not Bugs
+
+* There is now a nop noop parser that always matches, consumes no input, and returns an empty string.
+
+
+## 0.5.1
+
+2022-03-03
+
+### Bugs
+
+* The name and verify combinators will now pass the parse tree through to their parsers.
+
+
+## 0.5.0
+
+2022-03-03
+
+### Bugs
+
+* The rep operator will now avoid infinite loops if the parser succeeds but consumes no input.
+
+### Not Bugs
+
+* The base parser of a parser function is now exposed as a property, parser, of the function.
+* seq parser can now be named inline as the first argument.
+* The name combinator can now be passed a NodeName in place of a string.
+* The map operator callback will now be passed start and end position information.
+
+
 ## 0.4.2
 
 2022-02-21

@@ -15,7 +15,7 @@ export const DEFAULTS = {
 };
 
 export function csv(options?: CSVOptions) {
-  const opts = Object.assign({}, DEFAULTS, options);
+  const opts: typeof DEFAULTS = Object.assign({}, DEFAULTS, options);
 
   const ws = skip(' \t');
   const quote = str(opts.quote || '"');
@@ -29,7 +29,7 @@ export function csv(options?: CSVOptions) {
 
   return function parse(input: string, options?: ParseOptions) {
     const res: ParseNode|string[][]|ParseError = _parse(input, options);
-    if (Array.isArray(res)) {
+    if (Array.isArray(res) && res.length > 0) {
       if (opts.header) {
         const header: string[] = res.shift();
         for (let i = 0; i < res.length; i++) {

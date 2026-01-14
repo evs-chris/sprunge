@@ -3,3 +3,4 @@ import './parsers/char';
 import './parsers/seq';
 import './parsers/str';
 import './parsers/rep';
+import './parsers/json';

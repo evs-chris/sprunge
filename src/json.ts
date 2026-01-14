@@ -13,7 +13,7 @@ export type JSONValue = Array<JSONValue>|JSONObject|number|string|false|true|nul
 export type JSONObject = { [k: string]: JSONValue; };
 
 const underscores = /_/g;
-export const JNum: IParser<number> = map(
+export const decNum: IParser<number> = map(
   seq(
     opt(str('-', '+')),
     read1(digits), read(digits + '_'), opt(str(".")), read(digits + '_'),
@@ -21,6 +21,26 @@ export const JNum: IParser<number> = map(
   ),
   r => +(concat(r).replace(underscores, ''))
 );
+
+function ccat(v: any[]) {
+  return concat([v[0]].concat(v.slice(2)));
+}
+export const hexNum: IParser<number> = map(
+  seq(opt(str('-', '+')), str('0x', '0X'), read1(hex), read(hex + '_')),
+  r => parseInt(ccat(r).replace(underscores, ''), 16)
+);
+
+export const octNum: IParser<number> = map(
+  seq(opt(str('-', '+')), str('0o'), read1('01234567'), read('01234567_')),
+  r => parseInt(ccat(r).replace(underscores, ''), 8)
+);
+
+export const binNum: IParser<number> = map(
+  seq(opt(str('-', '+')), str('0b', '0B'), read1('01'), read('01_')),
+  r => parseInt(ccat(r).replace(underscores, ''), 2)
+);
+
+export const JNum = alt('number', hexNum, binNum, octNum, decNum);
 
 export const JStringEscape: IParser<string> = map(
   seq(str("\\"), notchars(1, 'xu')),

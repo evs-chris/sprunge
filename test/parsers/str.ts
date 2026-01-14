@@ -23,6 +23,11 @@ q.test('istr', t => {
   t.equal(p.parse('oOf', 0, success).length, 0);
 });
 
+q.test('istr with subsequent input', t => {
+  const p = seq(istr('foo', 'bar'), str('oof'));
+  t.deepEqual(p.parse('FOOoof', 0, success)[0], ['foo', 'oof']);
+});
+
 q.test('outer', t => {
   const p = outer(seq(str('\''), read1('0123456789abcdefABCDEF'), str('\'')));
   t.equal(p.parse(`'a1b2'`, 0, success)[0], `'a1b2'`);

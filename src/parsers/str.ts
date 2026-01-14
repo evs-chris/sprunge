@@ -77,16 +77,19 @@ export function str(...strings: string[]): IParser<string> {
  */
 export function istr(...strings: string[]): IParser<string> {
   const copy = strings.slice();
-  const chars = read1(copy.map(s => s.toLowerCase() + s.toUpperCase()).join(''));
   const idx = copy.map(s => s.toLowerCase());
+  const lens = idx.map(s => s.length);
   return {
     parse(s: string, p: number, res: Success<string>) {
-      const r = chars.parse(s, p, res);
-      if (!r.length) return r;
-      const i = idx.indexOf(r[0].toLowerCase());
-      if (!~i) return fail(p, detailedFail & 1 && `expected ${copy.length > 1 ? 'one of ' : ''}${copy.map(s => `${s}`).join(', ')}`);
-      r[0] = copy[i];
-      return r;
+      for (let i = 0; i < idx.length; i++) {
+        const v = s.slice(p, p + lens[i]);
+        if (v.toLowerCase() === idx[i]) {
+          res[0] = copy[i];
+          res[1] = p + lens[i];
+          return res;
+        }
+      }
+      return fail(p, detailedFail & 1 && `expected ${copy.length > 1 ? 'one of ' : ''}${copy.map(s => `${s}`).join(', ')}`);
     }
   };
 }

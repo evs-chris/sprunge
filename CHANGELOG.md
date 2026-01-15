@@ -1,3 +1,16 @@
+## 0.5.3
+
+2026-01-14
+
+### Bugs
+
+* The `istr` parser will no longer attempt to match against additional adjacent characters that happen to overlap with the set of characters in its target strings.
+
+### Not Bugs
+
+* The JSON number parser will now parse hexadecimal, octal, and binary integers.
+
+
 ## 0.5.2
 
 2024-11-08
